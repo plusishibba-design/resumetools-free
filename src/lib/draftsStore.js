@@ -20,11 +20,20 @@ function uid() {
 }
 
 function safeJSONParse(raw, fallback) {
-  try { return JSON.parse(raw); } catch { return fallback; }
+  // localStorage.getItem returns null for missing keys.
+  // JSON.parse(null) returns null (not an error), so we have to guard.
+  if (raw == null) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed == null ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
 }
 
 export function listDrafts() {
-  return safeJSONParse(localStorage.getItem(INDEX_KEY), []);
+  const result = safeJSONParse(localStorage.getItem(INDEX_KEY), []);
+  return Array.isArray(result) ? result : [];
 }
 
 export function getCurrentDraftId() {

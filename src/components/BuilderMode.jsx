@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLanguage } from '../LanguageContext';
 import ResumeDocument from './ResumeDocument';
 import useUndoable from '../hooks/useUndoable';
@@ -53,20 +53,31 @@ function BuilderMode() {
   const { t } = useLanguage();
 
   // === Draft loading ===
-  // Migrate legacy data if needed, then load current draft
-  useEffect(() => {
-    migrateLegacyIfNeeded(DEFAULT_DRAFT_BODY);
-  }, []);
-
-  const initialDraft = (() => {
-    const { id, draft } = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
-    return {
+  // One-time synchronous init: migrate legacy → load current → normalize.
+  // Wrapped in useRef so it runs exactly once across re-renders.
+  const initRef = useRef(null);
+  if (initRef.current === null) {
+    try {
+      migrateLegacyIfNeeded(DEFAULT_DRAFT_BODY);
+    } catch (e) {
+      console.warn('Draft migration error:', e);
+    }
+    let result;
+    try {
+      result = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
+    } catch (e) {
+      console.warn('Draft load error, falling back to sample:', e);
+      result = { id: 'fallback', draft: DEFAULT_DRAFT_BODY };
+    }
+    const { id, draft } = result;
+    initRef.current = {
       id,
-      resume: normalizeResume(draft.resume || DEFAULT_RESUME),
-      template: draft.template || 'classic',
-      pageSize: draft.pageSize || 'a4',
+      resume: normalizeResume(draft?.resume || DEFAULT_RESUME),
+      template: draft?.template || 'classic',
+      pageSize: draft?.pageSize || 'a4',
     };
-  })();
+  }
+  const initialDraft = initRef.current;
 
   const [draftId, setDraftId] = useState(initialDraft.id);
   const undoable = useUndoable(initialDraft.resume);
