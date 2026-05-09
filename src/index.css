@@ -1338,6 +1338,130 @@ a:hover {
   text-transform: uppercase;
   color: var(--color-clay-deep);
   padding: 0 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: calc(100% - 1rem);
+  justify-content: space-between;
+}
+
+.builder-fieldset.is-hidden {
+  background: var(--color-paper-soft);
+  opacity: 0.7;
+}
+
+.builder-fieldset.is-hidden > *:not(legend) {
+  opacity: 0.5;
+}
+
+.fieldset-controls {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.fs-ctrl {
+  background: transparent;
+  border: 1px solid var(--color-rule);
+  color: var(--color-ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 0.25rem 0.55rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  line-height: 1;
+  min-width: 1.8rem;
+}
+
+.fs-ctrl:hover:not(:disabled) {
+  border-color: var(--color-clay-deep);
+  color: var(--color-clay-deep);
+}
+
+.fs-ctrl:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.fs-ctrl-toggle {
+  letter-spacing: 0.16em;
+}
+
+.fs-ctrl-toggle[aria-pressed="true"] {
+  background: var(--color-paper);
+  border-style: dashed;
+}
+
+.field-hint {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.78rem;
+  color: var(--color-ink-soft);
+  margin: 0.35rem 0 0;
+  opacity: 0.85;
+}
+
+/* Reset modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 22, 20, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--color-paper);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  max-width: 440px;
+  width: 100%;
+  box-shadow: var(--shadow-elev);
+}
+
+.modal h3 {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 500;
+  margin: 0 0 var(--space-3);
+  color: var(--color-ink);
+}
+
+.modal p {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--color-ink-soft);
+  margin: 0 0 var(--space-5);
+  line-height: 1.65;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Letter page size — preview shows different proportions */
+.resume-doc[data-page-size="letter"] {
+  /* min-height set via inline style by component */
+}
+
+/* New section variants */
+.resume-entry--compact {
+  margin-bottom: 2.5mm;
+}
+
+.resume-entry-desc {
+  margin: 1.5mm 0 0;
+  font-size: 10pt;
+  color: #3d3530;
+  line-height: 1.55;
 }
 
 .builder-field {
