@@ -61,6 +61,9 @@ function ContactPage() {
             </h1>
             <p className="editorial-lede">{t('contact.lede')}</p>
           </div>
+          <figure className="contact-hero-figure">
+            <img src="/images/contact-hero.png" alt="" loading="lazy" />
+          </figure>
         </div>
         <EditorialOrnament />
 

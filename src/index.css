@@ -716,6 +716,18 @@ a:hover {
   color: var(--color-ink);
   line-height: 1.15;
   letter-spacing: -0.012em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+}
+
+.brand-mark {
+  width: 1.7em;
+  height: 1.7em;
+  flex-shrink: 0;
+  opacity: 0.88;
+  pointer-events: none;
+  display: inline-block;
 }
 
 .app-brand h1 em {

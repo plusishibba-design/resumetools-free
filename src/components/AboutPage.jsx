@@ -36,6 +36,9 @@ function AboutPage() {
             </h1>
             <p className="editorial-lede">{t('about.lede')}</p>
           </div>
+          <figure className="about-hero-figure">
+            <img src="/images/about-hero.png" alt="" loading="lazy" />
+          </figure>
         </div>
         <EditorialOrnament />
 
