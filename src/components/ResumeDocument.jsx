@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
+import { formatDateRange } from '../lib/formatDate';
 
 // Page dimensions (mm)
 const PAGE_DIMS = {
@@ -114,15 +115,22 @@ function ResumeDocument({ resume, template, pageSize = 'a4', t, onPageCount }) {
     };
   }, []);
 
-  const skillList = (resume.skills || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // Skills can be either a legacy comma-separated string or a list of groups
+  const skillGroups = Array.isArray(resume.skills)
+    ? resume.skills.filter((g) => g && g.items && g.items.trim())
+    : (resume.skills || '').trim()
+      ? [{ category: '', items: resume.skills }]
+      : [];
 
   const interestList = (resume.interests || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+
+  const formatExpDates = (exp) => {
+    const end = exp.current ? 'Present' : exp.end;
+    return formatDateRange(exp.start, end);
+  };
 
   // Section render registry
   const sections = {
@@ -144,9 +152,7 @@ function ResumeDocument({ resume, template, pageSize = 'a4', t, onPageCount }) {
                   {[exp.company, exp.location].filter(Boolean).join(' · ')}
                 </p>
               </div>
-              <p className="resume-entry-dates">
-                {[exp.start, exp.end].filter(Boolean).join(' — ')}
-              </p>
+              <p className="resume-entry-dates">{formatExpDates(exp)}</p>
             </div>
             {exp.bullets && (
               <ul className="resume-bullets">
@@ -251,10 +257,19 @@ function ResumeDocument({ resume, template, pageSize = 'a4', t, onPageCount }) {
         ))}
       </section>
     ),
-    skills: () => skillList.length > 0 && (
+    skills: () => skillGroups.length > 0 && (
       <section className="resume-section" key="skills">
         <h2>{t('preview.skills')}</h2>
-        <p className="resume-skills">{skillList.join(' · ')}</p>
+        {skillGroups.map((g, i) => {
+          const items = g.items.split(',').map((s) => s.trim()).filter(Boolean);
+          if (items.length === 0) return null;
+          return (
+            <p className="resume-skills" key={i}>
+              {g.category && <strong className="resume-skill-group">{g.category}: </strong>}
+              {items.join(' · ')}
+            </p>
+          );
+        })}
       </section>
     ),
     languages: () => resume.languages?.length > 0 && (
@@ -293,19 +308,26 @@ function ResumeDocument({ resume, template, pageSize = 'a4', t, onPageCount }) {
         style={{ minHeight: `${dims.h}mm` }}
         aria-label="Resume preview"
       >
-        <header className="resume-header">
-          <h1 className="resume-name">{resume.personal.name || ' '}</h1>
-          {resume.personal.headline && (
-            <p className="resume-headline">{resume.personal.headline}</p>
+        <header className={`resume-header ${resume.personal.photo ? 'has-photo' : ''}`}>
+          <div className="resume-header-text">
+            <h1 className="resume-name">{resume.personal.name || ' '}</h1>
+            {resume.personal.headline && (
+              <p className="resume-headline">{resume.personal.headline}</p>
+            )}
+            <ul className="resume-contact">
+              {resume.personal.email && <li>{resume.personal.email}</li>}
+              {resume.personal.phone && <li>{resume.personal.phone}</li>}
+              {resume.personal.location && <li>{resume.personal.location}</li>}
+              {resume.personal.website && <li>{resume.personal.website}</li>}
+              {resume.personal.linkedin && <li>{resume.personal.linkedin}</li>}
+              {resume.personal.github && <li>{resume.personal.github}</li>}
+            </ul>
+          </div>
+          {resume.personal.photo && (
+            <figure className="resume-photo">
+              <img src={resume.personal.photo} alt="" />
+            </figure>
           )}
-          <ul className="resume-contact">
-            {resume.personal.email && <li>{resume.personal.email}</li>}
-            {resume.personal.phone && <li>{resume.personal.phone}</li>}
-            {resume.personal.location && <li>{resume.personal.location}</li>}
-            {resume.personal.website && <li>{resume.personal.website}</li>}
-            {resume.personal.linkedin && <li>{resume.personal.linkedin}</li>}
-            {resume.personal.github && <li>{resume.personal.github}</li>}
-          </ul>
         </header>
 
         {orderedSections}

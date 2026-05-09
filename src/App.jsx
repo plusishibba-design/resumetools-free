@@ -8,6 +8,7 @@ const TermsOfService = lazy(() => import('./components/TermsOfService'));
 const ContactPage = lazy(() => import('./components/ContactPage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const BuilderMode = lazy(() => import('./components/BuilderMode'));
+const DraftsPage = lazy(() => import('./components/DraftsPage'));
 
 const LANGS = [
   { code: 'en', label: 'English' },
@@ -22,7 +23,7 @@ function AppInner() {
   const [pathname, setPathname] = useState(() => (typeof window !== 'undefined' ? window.location.pathname : '/'));
   const { t, lang, setLang } = useLanguage();
 
-  const validPages = ['builder', 'about', 'privacy', 'terms', 'contact'];
+  const validPages = ['builder', 'drafts', 'about', 'privacy', 'terms', 'contact'];
 
   function getRouteFromPath() {
     const path = window.location.pathname.replace(/^\//, '');
@@ -109,6 +110,7 @@ function AppInner() {
   const renderPage = () => {
     switch (page) {
       case 'builder': return <BuilderMode />;
+      case 'drafts': return <DraftsPage onOpen={() => navigateTo('builder')} />;
       case 'about': return <AboutPage />;
       case 'privacy': return <PrivacyPolicy />;
       case 'terms': return <TermsOfService />;
@@ -135,6 +137,9 @@ function AppInner() {
         <nav className="app-nav">
           <a href="/builder" onClick={(e) => { e.preventDefault(); navigateTo('builder'); }} className={page === 'builder' ? 'active' : ''}>
             {t('nav.builder')}
+          </a>
+          <a href="/drafts" onClick={(e) => { e.preventDefault(); navigateTo('drafts'); }} className={page === 'drafts' ? 'active' : ''}>
+            {t('nav.drafts')}
           </a>
           <a href="/about" onClick={(e) => { e.preventDefault(); navigateTo('about'); }} className={page === 'about' ? 'active' : ''}>
             {t('nav.about')}

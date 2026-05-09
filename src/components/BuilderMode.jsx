@@ -1,180 +1,108 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../LanguageContext';
 import ResumeDocument from './ResumeDocument';
+import useUndoable from '../hooks/useUndoable';
+import {
+  migrateLegacyIfNeeded,
+  getOrCreateCurrentDraft,
+  saveDraft,
+  getCurrentDraftId,
+  listDrafts,
+  renameDraft,
+} from '../lib/draftsStore';
+import { DEFAULT_DRAFT_BODY, DEFAULT_RESUME, DEFAULT_SECTIONS_CONFIG } from '../lib/defaultResume';
 
-const STORAGE_KEY = 'resumetools-data-v2';
-const TEMPLATE_KEY = 'resumetools-template-v1';
-const PAGESIZE_KEY = 'resumetools-pagesize-v1';
-const LEGACY_KEY = 'resumetools-data-v1';
-
-const DEFAULT_SECTIONS_CONFIG = [
-  { id: 'summary', visible: true },
-  { id: 'experience', visible: true },
-  { id: 'education', visible: true },
-  { id: 'certifications', visible: true },
-  { id: 'projects', visible: true },
-  { id: 'awards', visible: true },
-  { id: 'volunteer', visible: false },
-  { id: 'skills', visible: true },
-  { id: 'languages', visible: true },
-  { id: 'interests', visible: false },
-];
-
-const SAMPLE_RESUME = {
-  personal: {
-    name: 'Mai Nguyen',
-    headline: 'Senior Product Designer',
-    email: 'mai@example.com',
-    phone: '+84 90 123 4567',
-    location: 'Ho Chi Minh City',
-    website: 'mainguyen.design',
-    linkedin: 'linkedin.com/in/mainguyen',
-    github: 'github.com/mainguyen',
-  },
-  summary:
-    'Product designer with 8 years of experience leading end-to-end design for B2B SaaS and consumer fintech. Strong systems thinker who pairs editorial craft with rigorous UX research.',
-  experiences: [
-    {
-      role: 'Senior Product Designer',
-      company: 'Atlas Studio',
-      location: 'Ho Chi Minh City',
-      start: 'Jan 2022',
-      end: 'Present',
-      bullets:
-        'Led the redesign of the core dashboard, reducing time-to-first-action by **38%**.\nManaged a team of 3 designers and partnered with **12 engineers** across 4 squads.\nDefined the design system that now serves **14 products** across the company.',
-    },
-    {
-      role: 'Product Designer',
-      company: 'Lotus Bank',
-      location: 'Ho Chi Minh City',
-      start: 'Mar 2019',
-      end: 'Dec 2021',
-      bullets:
-        'Designed the mobile onboarding flow that lifted activation by **22%**.\nShipped the first Vietnamese-language banking app meeting **WCAG AA** contrast.\nResearched and documented **40+ user interviews** with small-business owners.',
-    },
-  ],
-  educations: [
-    {
-      degree: 'B.A. Visual Communication',
-      school: 'Hanoi University of Industrial Fine Arts',
-      location: 'Hanoi',
-      start: '2013',
-      end: '2017',
-    },
-  ],
-  certifications: [
-    {
-      name: 'Certified Scrum Master',
-      issuer: 'Scrum Alliance',
-      date: '2023',
-      credentialId: 'CSM-12345',
-    },
-  ],
-  projects: [
-    {
-      name: 'Lotus — Open-source Design System',
-      description: 'An 80-component design system released under MIT, used by 500+ teams.',
-      link: 'github.com/mainguyen/lotus',
-      dates: '2022 — Present',
-    },
-  ],
-  awards: [
-    {
-      name: 'Vietnam UX Awards — Gold',
-      issuer: 'Vietnam UX Society',
-      date: '2024',
-    },
-  ],
-  volunteer: [
-    {
-      role: 'Mentor',
-      organization: 'ADPList',
-      dates: '2021 — Present',
-      description: 'Mentored 40+ designers from underrepresented backgrounds in 1:1 portfolio reviews.',
-    },
-  ],
-  skills:
-    'Product Design, UX Research, Figma, Design Systems, Prototyping, Accessibility, Vietnamese, English',
-  languages: [
-    { name: 'Vietnamese', level: 'Native' },
-    { name: 'English', level: 'Fluent' },
-    { name: 'Japanese', level: 'B1' },
-  ],
-  interests: 'Editorial typography, vintage cameras, Vietnamese coffee culture, weekend long-distance running',
-  sectionsConfig: DEFAULT_SECTIONS_CONFIG,
-};
-
-function loadResume() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // Migrate: ensure all expected keys exist
-      return migrate(parsed);
-    }
-    // Try legacy v1
-    const legacy = localStorage.getItem(LEGACY_KEY);
-    if (legacy) {
-      const parsed = JSON.parse(legacy);
-      return migrate(parsed);
-    }
-  } catch {}
-  return SAMPLE_RESUME;
+// Migrate skills if it's still a legacy string
+function normalizeSkills(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    return [{ category: '', items: value }];
+  }
+  return [{ category: '', items: '' }];
 }
 
-function migrate(data) {
-  // Ensure new fields exist (for users coming from v0.1)
+// Ensure a loaded resume has all expected fields
+function normalizeResume(r) {
   return {
-    personal: { github: '', ...data.personal },
-    summary: data.summary || '',
-    experiences: data.experiences || [],
-    educations: data.educations || [],
-    certifications: data.certifications || [],
-    projects: data.projects || [],
-    awards: data.awards || [],
-    volunteer: data.volunteer || [],
-    skills: data.skills || '',
-    languages: data.languages || [],
-    interests: data.interests || '',
-    sectionsConfig: data.sectionsConfig || DEFAULT_SECTIONS_CONFIG,
+    personal: {
+      name: '', headline: '', email: '', phone: '', location: '',
+      website: '', linkedin: '', github: '', photo: '',
+      ...r.personal,
+    },
+    summary: r.summary || '',
+    experiences: (r.experiences || []).map((e) => ({
+      role: '', company: '', location: '', start: '', end: '', current: false, bullets: '',
+      ...e,
+    })),
+    educations: (r.educations || []).map((e) => ({
+      degree: '', school: '', location: '', start: '', end: '',
+      ...e,
+    })),
+    certifications: r.certifications || [],
+    projects: r.projects || [],
+    awards: r.awards || [],
+    volunteer: r.volunteer || [],
+    skills: normalizeSkills(r.skills),
+    languages: r.languages || [],
+    interests: r.interests || '',
+    sectionsConfig: r.sectionsConfig || DEFAULT_SECTIONS_CONFIG,
   };
-}
-
-function loadTemplate() {
-  try {
-    const tmpl = localStorage.getItem(TEMPLATE_KEY);
-    if (tmpl === 'classic' || tmpl === 'modern' || tmpl === 'compact') return tmpl;
-  } catch {}
-  return 'classic';
-}
-
-function loadPageSize() {
-  try {
-    const ps = localStorage.getItem(PAGESIZE_KEY);
-    if (ps === 'a4' || ps === 'letter') return ps;
-  } catch {}
-  return 'a4';
 }
 
 function BuilderMode() {
   const { t } = useLanguage();
-  const [resume, setResume] = useState(loadResume);
-  const [template, setTemplate] = useState(loadTemplate);
-  const [pageSize, setPageSize] = useState(loadPageSize);
+
+  // === Draft loading ===
+  // Migrate legacy data if needed, then load current draft
+  useEffect(() => {
+    migrateLegacyIfNeeded(DEFAULT_DRAFT_BODY);
+  }, []);
+
+  const initialDraft = (() => {
+    const { id, draft } = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
+    return {
+      id,
+      resume: normalizeResume(draft.resume || DEFAULT_RESUME),
+      template: draft.template || 'classic',
+      pageSize: draft.pageSize || 'a4',
+    };
+  })();
+
+  const [draftId, setDraftId] = useState(initialDraft.id);
+  const undoable = useUndoable(initialDraft.resume);
+  const resume = undoable.state;
+  const [template, setTemplate] = useState(initialDraft.template);
+  const [pageSize, setPageSize] = useState(initialDraft.pageSize);
   const [pageCount, setPageCount] = useState(1);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(resume));
-  }, [resume]);
+  // Draft name (from index)
+  const [draftName, setDraftName] = useState(() => {
+    const meta = listDrafts().find((d) => d.id === initialDraft.id);
+    return meta?.name || 'Untitled';
+  });
+  const [editingName, setEditingName] = useState(false);
 
+  // Switch draft if current changed externally (e.g. via DraftsPage)
   useEffect(() => {
-    localStorage.setItem(TEMPLATE_KEY, template);
-  }, [template]);
+    const currentId = getCurrentDraftId();
+    if (currentId && currentId !== draftId) {
+      const { draft } = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
+      undoable.replace(normalizeResume(draft.resume || DEFAULT_RESUME));
+      setTemplate(draft.template || 'classic');
+      setPageSize(draft.pageSize || 'a4');
+      setDraftId(currentId);
+      const meta = listDrafts().find((d) => d.id === currentId);
+      setDraftName(meta?.name || 'Untitled');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Persist on every change
   useEffect(() => {
-    localStorage.setItem(PAGESIZE_KEY, pageSize);
-  }, [pageSize]);
+    saveDraft(draftId, { resume, template, pageSize });
+  }, [resume, template, pageSize, draftId]);
 
   // Inject @page rule for the chosen page size
   useEffect(() => {
@@ -188,30 +116,49 @@ function BuilderMode() {
     };
   }, [pageSize]);
 
+  // Keyboard shortcuts: Ctrl/Cmd + Z / Y
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoable.undo();
+      } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        undoable.redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undoable]);
+
   const handlePageCount = useCallback((n) => setPageCount(n), []);
 
+  const setResume = undoable.setState;
   const updatePersonal = (key, value) =>
     setResume((r) => ({ ...r, personal: { ...r.personal, [key]: value } }));
-
   const updateField = (key, value) =>
     setResume((r) => ({ ...r, [key]: value }));
-
-  // Generic list helpers ------------------------------------------------
   const updateListItem = (key, i, field, value) =>
     setResume((r) => {
       const list = [...r[key]];
       list[i] = { ...list[i], [field]: value };
       return { ...r, [key]: list };
     });
-
   const addListItem = (key, item) =>
     setResume((r) => ({ ...r, [key]: [...r[key], item] }));
-
   const removeListItem = (key, i) =>
     setResume((r) => ({ ...r, [key]: r[key].filter((_, idx) => idx !== i) }));
+  const moveListItem = (key, i, dir) =>
+    setResume((r) => {
+      const list = [...r[key]];
+      const newIdx = i + dir;
+      if (newIdx < 0 || newIdx >= list.length) return r;
+      [list[i], list[newIdx]] = [list[newIdx], list[i]];
+      return { ...r, [key]: list };
+    });
 
-  // Section config helpers ----------------------------------------------
-  const moveSection = (id, dir) => {
+  const moveSection = (id, dir) =>
     setResume((r) => {
       const list = [...r.sectionsConfig];
       const idx = list.findIndex((s) => s.id === id);
@@ -220,42 +167,77 @@ function BuilderMode() {
       [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
       return { ...r, sectionsConfig: list };
     });
-  };
 
-  const toggleSection = (id) => {
+  const toggleSection = (id) =>
     setResume((r) => ({
       ...r,
       sectionsConfig: r.sectionsConfig.map((s) =>
         s.id === id ? { ...s, visible: !s.visible } : s
       ),
     }));
-  };
 
   const reset = () => {
-    setResume(SAMPLE_RESUME);
+    undoable.replace(normalizeResume(DEFAULT_RESUME));
     setShowResetModal(false);
   };
 
   const print = () => window.print();
 
-  // Section render registry — each renders a form panel
+  const exportDocx = async () => {
+    if (exportingDocx) return;
+    setExportingDocx(true);
+    try {
+      const { exportToDocx } = await import('../lib/exportDocx');
+      const filename = `${draftName.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'resume'}.docx`;
+      await exportToDocx(resume, t, filename);
+    } catch (err) {
+      console.error('DOCX export failed:', err);
+      alert(t('builder.docxFailed'));
+    } finally {
+      setExportingDocx(false);
+    }
+  };
+
+  // Photo upload — reads file as data URL
+  const photoInputRef = useRef(null);
+  const onPhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2_000_000) {
+      alert(t('builder.photoTooLarge'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => updatePersonal('photo', ev.target.result);
+    reader.readAsDataURL(file);
+  };
+  const clearPhoto = () => updatePersonal('photo', '');
+
+  const commitDraftName = () => {
+    if (draftName.trim()) {
+      renameDraft(draftId, draftName.trim());
+    }
+    setEditingName(false);
+  };
+
+  // === Section render registry ===
   const renderSection = (sectionId) => {
     switch (sectionId) {
       case 'summary':
         return (
-          <Field
-            label={t('builder.fieldSummary')}
-            value={resume.summary}
-            onChange={(v) => updateField('summary', v)}
-            multiline rows={4}
-          />
+          <Field label={t('builder.fieldSummary')} value={resume.summary}
+            onChange={(v) => updateField('summary', v)} multiline rows={4}
+            hint={t('builder.bulletHint')} />
         );
 
       case 'experience':
         return (
           <>
             {resume.experiences.map((exp, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.experiences.length}
+                onMove={(dir) => moveListItem('experiences', i, dir)}
+                onRemove={() => removeListItem('experiences', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldRole')} value={exp.role}
                     onChange={(v) => updateListItem('experiences', i, 'role', v)} />
@@ -264,23 +246,25 @@ function BuilderMode() {
                   <Field label={t('builder.fieldExpLocation')} value={exp.location}
                     onChange={(v) => updateListItem('experiences', i, 'location', v)} />
                   <div />
-                  <Field label={t('builder.fieldStart')} value={exp.start}
+                  <DateField label={t('builder.fieldStart')} value={exp.start}
                     onChange={(v) => updateListItem('experiences', i, 'start', v)} />
-                  <Field label={t('builder.fieldEnd')} value={exp.end}
+                  <DateField label={t('builder.fieldEnd')} value={exp.end}
+                    disabled={exp.current}
                     onChange={(v) => updateListItem('experiences', i, 'end', v)} />
                 </div>
+                <label className="checkbox-row">
+                  <input type="checkbox" checked={!!exp.current}
+                    onChange={(e) => updateListItem('experiences', i, 'current', e.target.checked)} />
+                  <span>{t('builder.currentJob')}</span>
+                </label>
                 <Field label={t('builder.fieldBullets')} value={exp.bullets}
                   onChange={(v) => updateListItem('experiences', i, 'bullets', v)}
                   multiline rows={4} hint={t('builder.bulletHint')} />
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('experiences', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('experiences', {
-                role: '', company: '', location: '', start: '', end: '', bullets: '',
+                role: '', company: '', location: '', start: '', end: '', current: false, bullets: '',
               })}>
               {t('builder.addExperience')}
             </button>
@@ -291,7 +275,10 @@ function BuilderMode() {
         return (
           <>
             {resume.educations.map((edu, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.educations.length}
+                onMove={(dir) => moveListItem('educations', i, dir)}
+                onRemove={() => removeListItem('educations', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldDegree')} value={edu.degree}
                     onChange={(v) => updateListItem('educations', i, 'degree', v)} />
@@ -305,11 +292,7 @@ function BuilderMode() {
                   <Field label={t('builder.fieldEduEnd')} value={edu.end}
                     onChange={(v) => updateListItem('educations', i, 'end', v)} />
                 </div>
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('educations', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('educations', {
@@ -324,7 +307,10 @@ function BuilderMode() {
         return (
           <>
             {resume.certifications.map((cert, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.certifications.length}
+                onMove={(dir) => moveListItem('certifications', i, dir)}
+                onRemove={() => removeListItem('certifications', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldCertName')} value={cert.name}
                     onChange={(v) => updateListItem('certifications', i, 'name', v)} />
@@ -335,11 +321,7 @@ function BuilderMode() {
                   <Field label={t('builder.fieldCertId')} value={cert.credentialId}
                     onChange={(v) => updateListItem('certifications', i, 'credentialId', v)} />
                 </div>
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('certifications', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('certifications', {
@@ -354,7 +336,10 @@ function BuilderMode() {
         return (
           <>
             {resume.projects.map((p, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.projects.length}
+                onMove={(dir) => moveListItem('projects', i, dir)}
+                onRemove={() => removeListItem('projects', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldProjectName')} value={p.name}
                     onChange={(v) => updateListItem('projects', i, 'name', v)} />
@@ -366,11 +351,7 @@ function BuilderMode() {
                 <Field label={t('builder.fieldProjectDesc')} value={p.description}
                   onChange={(v) => updateListItem('projects', i, 'description', v)}
                   multiline rows={3} />
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('projects', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('projects', {
@@ -385,7 +366,10 @@ function BuilderMode() {
         return (
           <>
             {resume.awards.map((a, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.awards.length}
+                onMove={(dir) => moveListItem('awards', i, dir)}
+                onRemove={() => removeListItem('awards', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldAwardName')} value={a.name}
                     onChange={(v) => updateListItem('awards', i, 'name', v)} />
@@ -394,11 +378,7 @@ function BuilderMode() {
                   <Field label={t('builder.fieldAwardDate')} value={a.date}
                     onChange={(v) => updateListItem('awards', i, 'date', v)} />
                 </div>
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('awards', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('awards', { name: '', issuer: '', date: '' })}>
@@ -411,7 +391,10 @@ function BuilderMode() {
         return (
           <>
             {resume.volunteer.map((v, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.volunteer.length}
+                onMove={(dir) => moveListItem('volunteer', i, dir)}
+                onRemove={() => removeListItem('volunteer', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldVolRole')} value={v.role}
                     onChange={(val) => updateListItem('volunteer', i, 'role', val)} />
@@ -423,11 +406,7 @@ function BuilderMode() {
                 <Field label={t('builder.fieldVolDesc')} value={v.description}
                   onChange={(val) => updateListItem('volunteer', i, 'description', val)}
                   multiline rows={2} />
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('volunteer', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('volunteer', {
@@ -440,27 +419,42 @@ function BuilderMode() {
 
       case 'skills':
         return (
-          <Field label={t('builder.fieldSkills')} value={resume.skills}
-            onChange={(v) => updateField('skills', v)}
-            multiline rows={2} />
+          <>
+            {resume.skills.map((g, i) => (
+              <RepeatBlock key={i} idx={i} count={resume.skills.length}
+                onMove={(dir) => moveListItem('skills', i, dir)}
+                onRemove={() => removeListItem('skills', i)}
+                t={t}>
+                <Field label={t('builder.fieldSkillCategory')} value={g.category}
+                  onChange={(v) => updateListItem('skills', i, 'category', v)}
+                  hint={t('builder.skillCategoryHint')} />
+                <Field label={t('builder.fieldSkillItems')} value={g.items}
+                  onChange={(v) => updateListItem('skills', i, 'items', v)}
+                  multiline rows={2} />
+              </RepeatBlock>
+            ))}
+            <button type="button" className="add-btn"
+              onClick={() => addListItem('skills', { category: '', items: '' })}>
+              {t('builder.addSkillGroup')}
+            </button>
+          </>
         );
 
       case 'languages':
         return (
           <>
             {resume.languages.map((lang, i) => (
-              <div key={i} className="repeat-block">
+              <RepeatBlock key={i} idx={i} count={resume.languages.length}
+                onMove={(dir) => moveListItem('languages', i, dir)}
+                onRemove={() => removeListItem('languages', i)}
+                t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldLangName')} value={lang.name}
                     onChange={(v) => updateListItem('languages', i, 'name', v)} />
                   <Field label={t('builder.fieldLangLevel')} value={lang.level}
                     onChange={(v) => updateListItem('languages', i, 'level', v)} />
                 </div>
-                <button type="button" className="remove-btn"
-                  onClick={() => removeListItem('languages', i)}>
-                  {t('builder.removeBtn')}
-                </button>
-              </div>
+              </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
               onClick={() => addListItem('languages', { name: '', level: '' })}>
@@ -473,8 +467,7 @@ function BuilderMode() {
         return (
           <Field label={t('builder.fieldInterests')} value={resume.interests}
             onChange={(v) => updateField('interests', v)}
-            multiline rows={2}
-            hint={t('builder.interestsHint')} />
+            multiline rows={2} hint={t('builder.interestsHint')} />
         );
 
       default:
@@ -488,7 +481,27 @@ function BuilderMode() {
     <div className="builder-layout">
       {/* LEFT: form panel */}
       <div className="builder-form no-print" data-reveal>
-        {/* Toolbar */}
+        {/* Draft name + toolbar */}
+        <div className="builder-draft-row">
+          {editingName ? (
+            <input type="text" className="draft-name-edit"
+              value={draftName} autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitDraftName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitDraftName();
+                if (e.key === 'Escape') setEditingName(false);
+              }} />
+          ) : (
+            <h2 className="draft-name-display"
+              onClick={() => setEditingName(true)}
+              title={t('builder.renameHint')}>
+              {draftName}
+              <span className="rename-icon" aria-hidden="true">✎</span>
+            </h2>
+          )}
+        </div>
+
         <div className="builder-toolbar">
           <div className="builder-template-picker">
             <span className="picker-label">{t('builder.templateLabel')}</span>
@@ -516,8 +529,22 @@ function BuilderMode() {
           </div>
           <div className="builder-actions">
             <button type="button" className="cta-ghost"
+              onClick={undoable.undo} disabled={!undoable.canUndo}
+              title={t('builder.undoHint')}>
+              ↶ {t('builder.undoBtn')}
+            </button>
+            <button type="button" className="cta-ghost"
+              onClick={undoable.redo} disabled={!undoable.canRedo}
+              title={t('builder.redoHint')}>
+              ↷ {t('builder.redoBtn')}
+            </button>
+            <button type="button" className="cta-ghost"
               onClick={() => setShowResetModal(true)}>
               {t('builder.resetBtn')}
+            </button>
+            <button type="button" className="cta-ghost"
+              onClick={exportDocx} disabled={exportingDocx}>
+              {exportingDocx ? t('builder.exportingDocx') : t('builder.docxBtn')}
             </button>
             <button type="button" className="cta-primary" onClick={print}>
               {t('builder.printBtn')}
@@ -557,19 +584,43 @@ function BuilderMode() {
             <Field label={t('builder.fieldGithub')} value={resume.personal.github}
               onChange={(v) => updatePersonal('github', v)} />
           </div>
+          {/* Photo */}
+          <div className="photo-field">
+            <label className="photo-label">{t('builder.fieldPhoto')}</label>
+            <div className="photo-row">
+              {resume.personal.photo ? (
+                <img src={resume.personal.photo} alt="" className="photo-preview" />
+              ) : (
+                <div className="photo-placeholder">
+                  <span>{t('builder.photoNone')}</span>
+                </div>
+              )}
+              <div className="photo-actions">
+                <input type="file" accept="image/*" ref={photoInputRef}
+                  onChange={onPhotoSelect} style={{ display: 'none' }} />
+                <button type="button" className="cta-ghost"
+                  onClick={() => photoInputRef.current?.click()}>
+                  {resume.personal.photo ? t('builder.photoReplace') : t('builder.photoUpload')}
+                </button>
+                {resume.personal.photo && (
+                  <button type="button" className="cta-ghost danger" onClick={clearPhoto}>
+                    {t('builder.photoRemove')}
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="field-hint">{t('builder.photoHint')}</p>
+          </div>
         </FieldSet>
 
         {/* Reorderable sections */}
         {resume.sectionsConfig.map((s, idx) => (
-          <FieldSet
-            key={s.id}
-            title={t(sectionTitleKey(s.id))}
+          <FieldSet key={s.id} title={t(sectionTitleKey(s.id))}
             visible={s.visible}
             onToggle={() => toggleSection(s.id)}
             onMoveUp={idx > 0 ? () => moveSection(s.id, -1) : null}
             onMoveDown={idx < resume.sectionsConfig.length - 1 ? () => moveSection(s.id, +1) : null}
-            t={t}
-          >
+            t={t}>
             {renderSection(s.id)}
           </FieldSet>
         ))}
@@ -578,13 +629,8 @@ function BuilderMode() {
       {/* RIGHT: live preview */}
       <div className="builder-preview-wrap">
         <div className="builder-preview-inner" data-page-count={pageCount}>
-          <ResumeDocument
-            resume={resume}
-            template={template}
-            pageSize={pageSize}
-            t={t}
-            onPageCount={handlePageCount}
-          />
+          <ResumeDocument resume={resume} template={template} pageSize={pageSize}
+            t={t} onPageCount={handlePageCount} />
         </div>
       </div>
 
@@ -635,6 +681,23 @@ function FieldSet({ title, children, visible, onToggle, onMoveUp, onMoveDown, t 
   );
 }
 
+function RepeatBlock({ children, idx, count, onMove, onRemove, t }) {
+  return (
+    <div className="repeat-block">
+      <div className="repeat-block-controls">
+        <button type="button" className="fs-ctrl"
+          onClick={() => onMove(-1)} disabled={idx === 0} aria-label="Move up">↑</button>
+        <button type="button" className="fs-ctrl"
+          onClick={() => onMove(+1)} disabled={idx === count - 1} aria-label="Move down">↓</button>
+        <button type="button" className="remove-btn-inline" onClick={onRemove}>
+          {t('builder.removeBtn')}
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function Field({ label, value, onChange, multiline, rows = 2, type = 'text', hint }) {
   return (
     <div className="builder-field">
@@ -647,6 +710,30 @@ function Field({ label, value, onChange, multiline, rows = 2, type = 'text', hin
           onChange={(e) => onChange(e.target.value)} />
       )}
       {hint && <p className="field-hint">{hint}</p>}
+    </div>
+  );
+}
+
+function DateField({ label, value, onChange, disabled }) {
+  // Accepts YYYY-MM (from <input type="month">) OR free text fallback
+  const isYearMonth = /^\d{4}-\d{2}$/.test(value || '');
+  const [useText, setUseText] = useState(!isYearMonth && !!value);
+
+  return (
+    <div className="builder-field">
+      <label>{label}</label>
+      {useText ? (
+        <input type="text" value={value || ''} disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. Jan 2020" />
+      ) : (
+        <input type="month" value={isYearMonth ? value : ''} disabled={disabled}
+          onChange={(e) => onChange(e.target.value)} />
+      )}
+      <button type="button" className="field-toggle"
+        onClick={() => setUseText((u) => !u)}>
+        {useText ? '📅 Use picker' : 'abc Use text'}
+      </button>
     </div>
   );
 }
