@@ -14,7 +14,7 @@ function HomeHero({ onStart, onAboutClick }) {
       <p className="meta-stamp" style={{ marginBottom: '1.5rem' }} data-reveal>
         <span>STUDIO T. ISHI</span>
         <span className="sep">·</span>
-        <span>RESUME TOOLS</span>
+        <span>CAREER TOOLS</span>
         <span className="sep">·</span>
         <span>SAIGON</span>
       </p>
