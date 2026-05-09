@@ -16,7 +16,7 @@ function PrivacyPolicy() {
 
         <article className="prose" data-reveal style={{ marginTop: '2rem' }}>
           <p>
-            Resume Tools is built around a single principle: the resume content you enter never
+            Career Tools is built around a single principle: the resume content you enter never
             leaves your device. This page describes what we do and do not collect.
           </p>
 
@@ -52,7 +52,7 @@ function PrivacyPolicy() {
 
           <h2>Children</h2>
           <p>
-            Resume Tools is not directed at children under 13. We do not knowingly collect any data
+            Career Tools is not directed at children under 13. We do not knowingly collect any data
             that could identify a child.
           </p>
 

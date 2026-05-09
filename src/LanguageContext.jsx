@@ -1,11 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import translations from './i18n';
 
+const LANG_KEY = 'careertools-lang';
+const LEGACY_LANG_KEY = 'resumetools-lang';
+
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
   const [lang, setLang] = useState(() => {
-    const saved = localStorage.getItem('resumetools-lang');
+    // Migrate legacy resumetools-lang into careertools-lang
+    let saved = localStorage.getItem(LANG_KEY);
+    if (!saved) {
+      const legacy = localStorage.getItem(LEGACY_LANG_KEY);
+      if (legacy) {
+        saved = legacy;
+        localStorage.setItem(LANG_KEY, legacy);
+      }
+    }
     if (saved) return saved;
     const browserLang = (navigator.language || '').toLowerCase();
     if (browserLang.startsWith('ja')) return 'ja';
@@ -16,7 +27,7 @@ export function LanguageProvider({ children }) {
   });
 
   useEffect(() => {
-    localStorage.setItem('resumetools-lang', lang);
+    localStorage.setItem(LANG_KEY, lang);
     document.documentElement.lang = lang;
   }, [lang]);
 

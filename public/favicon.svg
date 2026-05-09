@@ -7,8 +7,8 @@
   </defs>
   <rect width="64" height="64" rx="10" fill="url(#bg)"/>
   <rect x="3.5" y="3.5" width="57" height="57" rx="8.5" fill="none" stroke="#a8704c" stroke-width="0.6" opacity="0.95"/>
-  <text x="32" y="46.5" text-anchor="middle"
+  <text x="32" y="44" text-anchor="middle"
         font-family="'Fraunces','Times New Roman',Georgia,serif"
-        font-style="italic" font-weight="500" font-size="40" fill="#f8f5ee">R</text>
-  <line x1="22" y1="51" x2="42" y2="51" stroke="#a8704c" stroke-width="0.8" opacity="0.95"/>
+        font-style="italic" font-weight="500" font-size="28" fill="#f8f5ee">CV</text>
+  <line x1="20" y1="51" x2="44" y2="51" stroke="#a8704c" stroke-width="0.8" opacity="0.95"/>
 </svg>

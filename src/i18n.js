@@ -1,10 +1,10 @@
-// Resume Tools — flat dot-key i18n
+// Career Tools — flat dot-key i18n
 // Keys missing in a language fall back to English via LanguageContext.t()
 
 const translations = {
   // ── English (primary, source of truth) ──
   en: {
-    'app.title': 'Resume Tools',
+    'app.title': 'Career Tools',
     'app.subtitle': 'BROWSER-NATIVE · NO SIGNUP · NO UPLOAD',
 
     'nav.builder': 'Builder',
@@ -28,7 +28,7 @@ const translations = {
     'footer.copyright': '2026 Studio T. Ishi',
 
     // Home
-    'home.eyebrow': 'I — Studio T. Ishi · Resume Tools',
+    'home.eyebrow': 'I — Studio T. Ishi · Career Tools',
     'home.titleSerif': 'A resume,',
     'home.titleEm': 'set in editorial type.',
     'home.lede':
@@ -216,11 +216,11 @@ const translations = {
     'preview.interests': 'Interests',
 
     // About
-    'about.eyebrow': 'I — About Resume Tools',
+    'about.eyebrow': 'I — About Career Tools',
     'about.titleSerif': 'A resume builder',
     'about.titleEm': 'with no upsell.',
     'about.lede':
-      'Resume Tools is part of Studio T. Ishi — a small Saigon-based studio building editorial websites and useful tools for the open web.',
+      'Career Tools is part of Studio T. Ishi — a small Saigon-based studio building editorial websites and useful tools for the open web.',
     'about.whyTitle': 'Why we built this',
     'about.whyP1':
       'Most "free" resume builders show you a clean preview, then put a paywall in front of the PDF download button. We thought that was an unkind way to treat people during a job search. So we built a builder where everything is genuinely free, including the export.',
@@ -247,7 +247,7 @@ const translations = {
     'about.how3': 'Click "Save as PDF" — the browser print dialog opens, choose "Save as PDF" as the destination.',
     'about.techTitle': 'How it works under the hood',
     'about.techP1':
-      'Resume Tools is built on the same stack we use for our editorial client work — but stripped down to a single-page builder:',
+      'Career Tools is built on the same stack we use for our editorial client work — but stripped down to a single-page builder:',
     'about.tech1': 'React 19 with a small custom router (no framework lock-in).',
     'about.tech2': 'All editing is local — your draft is saved to localStorage so a refresh doesn\'t lose your work.',
     'about.tech3': 'PDF export uses the browser\'s built-in print engine via @media print CSS — no PDF library bloat.',
@@ -267,7 +267,7 @@ const translations = {
     'about.closingEyebrow': 'III — Boundaries',
     'about.closingTitle': 'What this is not',
     'about.closingBody':
-      'Not career advice. Not a guarantee that any specific resume will pass any specific ATS or land any specific interview. Resume Tools gives you a clean, editorial resume; the words are up to you.',
+      'Not career advice. Not a guarantee that any specific resume will pass any specific ATS or land any specific interview. Career Tools gives you a clean, editorial resume; the words are up to you.',
 
     // Contact
     'contact.eyebrow': 'I — Contact',
@@ -280,7 +280,7 @@ const translations = {
     'contact.categoriesIntro':
       'These templates open your mail client with a pre-filled subject line so we can route faster.',
     'contact.cat1Title': 'General inquiry',
-    'contact.cat1Body': 'A general question about Resume Tools, the studio, or how a feature works.',
+    'contact.cat1Body': 'A general question about Career Tools, the studio, or how a feature works.',
     'contact.cat2Title': 'Bug report',
     'contact.cat2Body': 'Something looked wrong, exported strangely, or a translation looks off. Include browser + steps.',
     'contact.cat3Title': 'Template request',
@@ -297,7 +297,7 @@ const translations = {
 
   // ── Japanese ──
   ja: {
-    'app.title': 'Resume Tools',
+    'app.title': 'Career Tools',
     'app.subtitle': 'ブラウザ完結 · 登録不要 · アップロード不要',
 
     'nav.builder': 'ビルダー',
@@ -320,7 +320,7 @@ const translations = {
     'footer.portfolio': 'Studio',
     'footer.copyright': '2026 Studio T. Ishi',
 
-    'home.eyebrow': 'I — Studio T. Ishi · Resume Tools',
+    'home.eyebrow': 'I — Studio T. Ishi · Career Tools',
     'home.titleSerif': '履歴書を、',
     'home.titleEm': 'エディトリアル組版で。',
     'home.lede':
@@ -505,11 +505,11 @@ const translations = {
     'preview.volunteer': 'ボランティア',
     'preview.interests': '趣味・興味',
 
-    'about.eyebrow': 'I — About Resume Tools',
+    'about.eyebrow': 'I — About Career Tools',
     'about.titleSerif': '営業のない',
     'about.titleEm': '履歴書ビルダー。',
     'about.lede':
-      'Resume Tools は Studio T. Ishi の一部です。Saigon を拠点にエディトリアルなWebサイトと公開ツールを作っています。',
+      'Career Tools は Studio T. Ishi の一部です。Saigon を拠点にエディトリアルなWebサイトと公開ツールを作っています。',
     'about.whyTitle': '作った理由',
     'about.whyP1':
       'たいていの「無料」履歴書ビルダーは、綺麗なプレビューを見せてから PDF ダウンロードボタンに有料壁を置きます。求職中の人間にそれは不親切だと感じました。だから本当に全部無料 — エクスポート含めて — のビルダーを作りました。',
@@ -536,7 +536,7 @@ const translations = {
     'about.how3': '「PDFに保存」をクリック — ブラウザの印刷ダイアログで「PDFに保存」を選択',
     'about.techTitle': '裏側の仕組み',
     'about.techP1':
-      'Resume Tools はクライアント案件と同じスタックで作られていますが、ビルダーエンジンに削ぎ落としています:',
+      'Career Tools はクライアント案件と同じスタックで作られていますが、ビルダーエンジンに削ぎ落としています:',
     'about.tech1': 'React 19 + 自前ルーター（フレームワーク依存なし）',
     'about.tech2': '編集はすべてローカル。下書きは localStorage に保存されてリロードしても消えません',
     'about.tech3': 'PDF出力はブラウザの内蔵印刷エンジン + @media print CSS — 重い PDF ライブラリ不使用',
@@ -556,7 +556,7 @@ const translations = {
     'about.closingEyebrow': 'III — 境界線',
     'about.closingTitle': 'このツールがしないこと',
     'about.closingBody':
-      'これはキャリアアドバイスではありません。特定の履歴書が特定の ATS を通る、または特定の面接に進む、という保証もありません。Resume Tools が提供するのはエディトリアルな履歴書フォーマット。言葉はあなた次第です。',
+      'これはキャリアアドバイスではありません。特定の履歴書が特定の ATS を通る、または特定の面接に進む、という保証もありません。Career Tools が提供するのはエディトリアルな履歴書フォーマット。言葉はあなた次第です。',
 
     'contact.eyebrow': 'I — Contact',
     'contact.titleSerif': 'スタジオに',
@@ -568,7 +568,7 @@ const translations = {
     'contact.categoriesIntro':
       'メールクライアントに件名が入った状態で開きます。仕分けが速くなります。',
     'contact.cat1Title': '一般のお問い合わせ',
-    'contact.cat1Body': 'Resume Tools やスタジオ、機能についての質問。',
+    'contact.cat1Body': 'Career Tools やスタジオ、機能についての質問。',
     'contact.cat2Title': 'バグ報告',
     'contact.cat2Body': '表示がおかしい、出力が変、翻訳がおかしい等。ブラウザ・手順を添えてください。',
     'contact.cat3Title': 'テンプレート提案',
@@ -585,7 +585,7 @@ const translations = {
 
   // ── Vietnamese ──
   vi: {
-    'app.title': 'Resume Tools',
+    'app.title': 'Career Tools',
     'app.subtitle': 'CHẠY TRÊN TRÌNH DUYỆT · KHÔNG ĐĂNG KÝ · KHÔNG TẢI LÊN',
     'nav.builder': 'Trình tạo',
     'nav.drafts': 'Bản nháp',
@@ -623,7 +623,7 @@ const translations = {
 
   // ── Indonesian ──
   id: {
-    'app.title': 'Resume Tools',
+    'app.title': 'Career Tools',
     'app.subtitle': 'BERJALAN DI BROWSER · TANPA DAFTAR · TANPA UNGGAH',
     'nav.builder': 'Pembuat',
     'nav.drafts': 'Draf',
@@ -661,7 +661,7 @@ const translations = {
 
   // ── Chinese (Simplified) ──
   zh: {
-    'app.title': 'Resume Tools',
+    'app.title': 'Career Tools',
     'app.subtitle': '浏览器原生 · 无需注册 · 无需上传',
     'nav.builder': '生成器',
     'nav.drafts': '草稿',

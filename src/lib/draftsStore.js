@@ -1,13 +1,21 @@
-// Drafts store — manage multiple resume drafts in localStorage.
+// Drafts store — manage multiple career-document drafts in localStorage.
 //
-// Schema:
-//   resumetools-drafts-index    → [{ id, name, updatedAt }, ...]
-//   resumetools-current-draft   → 'id-of-current'
-//   resumetools-draft-{id}      → { resume, template, pageSize }
+// Schema (v0.4 / careertools):
+//   careertools-drafts-index    → [{ id, name, updatedAt }, ...]
+//   careertools-current-draft   → 'id-of-current'
+//   careertools-draft-{id}      → { resume, template, pageSize }
+//
+// Backward-compatible read of v0.3 / resumetools-* keys is performed once at
+// load via migrateFromResumeTools().
 
-const INDEX_KEY = 'resumetools-drafts-index';
-const CURRENT_KEY = 'resumetools-current-draft';
-const DRAFT_PREFIX = 'resumetools-draft-';
+const INDEX_KEY = 'careertools-drafts-index';
+const CURRENT_KEY = 'careertools-current-draft';
+const DRAFT_PREFIX = 'careertools-draft-';
+
+const RESUMETOOLS_INDEX_KEY = 'resumetools-drafts-index';
+const RESUMETOOLS_CURRENT_KEY = 'resumetools-current-draft';
+const RESUMETOOLS_DRAFT_PREFIX = 'resumetools-draft-';
+
 const LEGACY_KEYS = {
   resume: 'resumetools-data-v2',
   resumeOld: 'resumetools-data-v1',
@@ -89,9 +97,45 @@ export function deleteDraft(id) {
   }
 }
 
-// One-time migration from v0.2 single-resume schema to v0.3 multi-draft.
-// Returns the id of the migrated draft, or null if nothing to migrate.
+// Migrate from resumetools-* keys (v0.3) to careertools-* keys (v0.4).
+// Runs once: if careertools-drafts-index already populated, nothing to do.
+function migrateFromResumeTools() {
+  if (listDrafts().length > 0) return; // already migrated
+
+  const oldIndex = localStorage.getItem(RESUMETOOLS_INDEX_KEY);
+  if (!oldIndex) return; // no resumetools data either
+
+  // Copy index
+  localStorage.setItem(INDEX_KEY, oldIndex);
+
+  // Copy current pointer
+  const oldCurrent = localStorage.getItem(RESUMETOOLS_CURRENT_KEY);
+  if (oldCurrent) localStorage.setItem(CURRENT_KEY, oldCurrent);
+
+  // Copy each draft body
+  try {
+    const drafts = JSON.parse(oldIndex);
+    if (Array.isArray(drafts)) {
+      drafts.forEach((d) => {
+        if (!d?.id) return;
+        const oldKey = RESUMETOOLS_DRAFT_PREFIX + d.id;
+        const newKey = DRAFT_PREFIX + d.id;
+        const data = localStorage.getItem(oldKey);
+        if (data) localStorage.setItem(newKey, data);
+      });
+    }
+  } catch (e) {
+    console.warn('Resume → Career drafts migration error:', e);
+  }
+  // Don't delete old keys yet — leave for safety, can be cleaned up later
+}
+
+// Migrate from v0.2 single-resume schema (resumetools-data-v2) — used only if
+// migrateFromResumeTools didn't recover any drafts.
 export function migrateLegacyIfNeeded(defaultDraftBody) {
+  // Run resumetools→careertools migration first
+  migrateFromResumeTools();
+
   // Already migrated?
   if (listDrafts().length > 0) return null;
 

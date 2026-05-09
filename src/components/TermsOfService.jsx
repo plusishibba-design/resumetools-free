@@ -16,13 +16,13 @@ function TermsOfService() {
 
         <article className="prose" data-reveal style={{ marginTop: '2rem' }}>
           <p>
-            Welcome to Resume Tools. By using this website, you agree to the terms below. If you
+            Welcome to Career Tools. By using this website, you agree to the terms below. If you
             do not agree, please do not use the site.
           </p>
 
           <h2>Not career or legal advice</h2>
           <p>
-            Resume Tools provides resume formatting tools. The output is not career, employment,
+            Career Tools provides resume formatting tools. The output is not career, employment,
             legal, or tax advice. We do not guarantee that any specific resume will pass any
             specific applicant tracking system (ATS) or land any specific interview.
           </p>

@@ -3,7 +3,7 @@ import { useLanguage } from '../LanguageContext';
 import EditorialOrnament from './EditorialOrnament';
 
 const EMAIL = 'aamujou1@gmail.com';
-const SITE_PREFIX = '[Resume Tools]';
+const SITE_PREFIX = '[Career Tools]';
 
 const CATEGORIES = [
   {
