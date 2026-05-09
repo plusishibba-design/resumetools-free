@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 
 // Page dimensions (mm)
 const PAGE_DIMS = {
@@ -27,23 +27,92 @@ function ResumeDocument({ resume, template, pageSize = 'a4', t, onPageCount }) {
 
   const dims = PAGE_DIMS[pageSize] || PAGE_DIMS.a4;
 
-  useEffect(() => {
-    if (!docRef.current) return;
+  const pageHeightPx = dims.h * MM_TO_PX;
+
+  // Adjust page breaks: insert spacer divs so that section/entry blocks don't
+  // straddle A4 boundaries. Mirrors the browser's print engine page-break
+  // behavior in the on-screen preview, so what you see matches the PDF.
+  const adjustPageBreaks = useCallback(() => {
     const el = docRef.current;
-    const pageHeightPx = dims.h * MM_TO_PX;
+    if (!el) return;
 
-    const measure = () => {
-      const h = el.scrollHeight;
-      const n = Math.max(1, Math.ceil((h - 1) / pageHeightPx));
-      setPages(n);
-      onPageCount?.(n);
-    };
+    // Iterate up to N passes — each spacer insertion shifts later elements,
+    // so we restart and re-evaluate until no more straddles found.
+    for (let pass = 0; pass < 50; pass++) {
+      // Clear previous spacers
+      el.querySelectorAll('[data-page-spacer]').forEach((s) => s.remove());
 
-    measure();
-    const observer = new ResizeObserver(measure);
+      const breakables = el.querySelectorAll(
+        '.resume-section, .resume-section > .resume-entry'
+      );
+      let changed = false;
+
+      for (const elem of breakables) {
+        const top = elem.offsetTop;
+        const height = elem.offsetHeight;
+        if (height === 0) continue;
+        // Skip elements taller than a page — they'll have to break internally.
+        if (height >= pageHeightPx - 20) continue;
+
+        const topPage = Math.floor(top / pageHeightPx);
+        // Subtract 1px to avoid false positive when bottom lands exactly on the boundary.
+        const bottomPage = Math.floor((top + height - 1) / pageHeightPx);
+
+        if (topPage !== bottomPage) {
+          // Element straddles a page boundary. Push it down to the next page.
+          const nextPageStart = (topPage + 1) * pageHeightPx;
+          const spacerHeight = nextPageStart - top;
+          const spacer = document.createElement('div');
+          spacer.dataset.pageSpacer = 'true';
+          spacer.style.height = `${spacerHeight}px`;
+          spacer.setAttribute('aria-hidden', 'true');
+          elem.parentNode.insertBefore(spacer, elem);
+          changed = true;
+          break; // restart — positions have shifted
+        }
+      }
+
+      if (!changed) break;
+    }
+
+    // Re-measure pages after spacer adjustment
+    const newHeight = el.scrollHeight;
+    const n = Math.max(1, Math.ceil((newHeight - 1) / pageHeightPx));
+    setPages(n);
+    onPageCount?.(n);
+  }, [pageHeightPx, onPageCount]);
+
+  // Run after DOM mutations from data/template/pageSize changes
+  useLayoutEffect(() => {
+    adjustPageBreaks();
+  }, [resume, template, pageSize, adjustPageBreaks]);
+
+  // Catch later resizes (e.g. fonts finishing load) — debounced to avoid loops
+  useEffect(() => {
+    const el = docRef.current;
+    if (!el) return;
+    let timeoutId;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => adjustPageBreaks(), 80);
+    });
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [resume, template, pageSize, onPageCount, dims.h]);
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeoutId);
+    };
+  }, [adjustPageBreaks]);
+
+  // Cleanup spacers on unmount
+  useEffect(() => {
+    return () => {
+      if (docRef.current) {
+        docRef.current
+          .querySelectorAll('[data-page-spacer]')
+          .forEach((s) => s.remove());
+      }
+    };
+  }, []);
 
   const skillList = (resume.skills || '')
     .split(',')

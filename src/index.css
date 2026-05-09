@@ -1833,7 +1833,8 @@ a:hover {
   .builder-form,
   .builder-toolbar,
   .saved-note,
-  .resume-page-break-line {
+  .resume-page-break-line,
+  [data-page-spacer] {
     display: none !important;
   }
 
