@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../LanguageContext';
-import ResumeDocument from './ResumeDocument';
-import BulletCoach from './BulletCoach';
+import ResumeDocument from './document/ResumeDocument';
+import BulletCoach from './coaches/BulletCoach';
+import BuilderToolbar from './builder/BuilderToolbar';
+import ResetModal from './builder/ResetModal';
+import DraftNameRow from './builder/DraftNameRow';
+import { Field, FieldSet, RepeatBlock, DateField } from './builder/FormFields';
 import useUndoable from '../hooks/useUndoable';
-import { ResumeNarrator, buildResumeNarration } from '../lib/readAloud';
-import { ACCENT_PRESETS, DEFAULT_ACCENT_ID, getAccent, accentVars } from '../lib/accentColors';
+import useUndoableShortcuts from '../hooks/useUndoableShortcuts';
+import { ResumeNarrator, buildResumeNarration } from '../lib/analysis/readAloud';
+import { DEFAULT_ACCENT_ID, getAccent, accentVars } from '../lib/analysis/accentColors';
 import {
   migrateLegacyIfNeeded,
   getOrCreateCurrentDraft,
@@ -12,10 +17,9 @@ import {
   getCurrentDraftId,
   listDrafts,
   renameDraft,
-} from '../lib/draftsStore';
-import { DEFAULT_DRAFT_BODY, DEFAULT_RESUME, DEFAULT_SECTIONS_CONFIG } from '../lib/defaultResume';
+} from '../lib/drafts/draftsStore';
+import { DEFAULT_DRAFT_BODY, DEFAULT_RESUME, DEFAULT_SECTIONS_CONFIG } from '../lib/drafts/defaultResume';
 
-// Migrate skills if it's still a legacy string
 function normalizeSkills(value) {
   if (Array.isArray(value)) return value;
   if (typeof value === 'string' && value.trim()) {
@@ -24,7 +28,6 @@ function normalizeSkills(value) {
   return [{ category: '', items: '' }];
 }
 
-// Ensure a loaded resume has all expected fields
 function normalizeResume(r) {
   return {
     personal: {
@@ -52,24 +55,18 @@ function normalizeResume(r) {
   };
 }
 
-function BuilderMode() {
+function ResumeBuilder() {
   const { t, lang } = useLanguage();
 
-  // === Draft loading ===
-  // One-time synchronous init: migrate legacy → load current → normalize.
-  // Wrapped in useRef so it runs exactly once across re-renders.
+  // === One-time draft init ===
   const initRef = useRef(null);
   if (initRef.current === null) {
-    try {
-      migrateLegacyIfNeeded(DEFAULT_DRAFT_BODY);
-    } catch (e) {
-      console.warn('Draft migration error:', e);
-    }
+    try { migrateLegacyIfNeeded(DEFAULT_DRAFT_BODY); } catch (e) { console.warn(e); }
     let result;
     try {
       result = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
     } catch (e) {
-      console.warn('Draft load error, falling back to sample:', e);
+      console.warn('Draft load error:', e);
       result = { id: 'fallback', draft: DEFAULT_DRAFT_BODY };
     }
     const { id, draft } = result;
@@ -81,14 +78,14 @@ function BuilderMode() {
       accentColor: draft?.accentColor || DEFAULT_ACCENT_ID,
     };
   }
-  const initialDraft = initRef.current;
+  const init = initRef.current;
 
-  const [draftId, setDraftId] = useState(initialDraft.id);
-  const undoable = useUndoable(initialDraft.resume);
+  const [draftId] = useState(init.id);
+  const undoable = useUndoable(init.resume);
   const resume = undoable.state;
-  const [template, setTemplate] = useState(initialDraft.template);
-  const [pageSize, setPageSize] = useState(initialDraft.pageSize);
-  const [accentId, setAccentId] = useState(initialDraft.accentColor);
+  const [template, setTemplate] = useState(init.template);
+  const [pageSize, setPageSize] = useState(init.pageSize);
+  const [accentId, setAccentId] = useState(init.accentColor);
   const accent = getAccent(accentId);
   const [pageCount, setPageCount] = useState(1);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -98,34 +95,17 @@ function BuilderMode() {
   const [readingAloud, setReadingAloud] = useState(false);
   const narratorRef = useRef(null);
 
-  // Draft name (from index)
   const [draftName, setDraftName] = useState(() => {
-    const meta = listDrafts().find((d) => d.id === initialDraft.id);
+    const meta = listDrafts().find((d) => d.id === draftId);
     return meta?.name || 'Untitled';
   });
-  const [editingName, setEditingName] = useState(false);
 
-  // Switch draft if current changed externally (e.g. via DraftsPage)
-  useEffect(() => {
-    const currentId = getCurrentDraftId();
-    if (currentId && currentId !== draftId) {
-      const { draft } = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
-      undoable.replace(normalizeResume(draft.resume || DEFAULT_RESUME));
-      setTemplate(draft.template || 'classic');
-      setPageSize(draft.pageSize || 'a4');
-      setDraftId(currentId);
-      const meta = listDrafts().find((d) => d.id === currentId);
-      setDraftName(meta?.name || 'Untitled');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Persist on every change
+  // Persist
   useEffect(() => {
     saveDraft(draftId, { type: 'resume', resume, template, pageSize, accentColor: accentId });
   }, [resume, template, pageSize, accentId, draftId]);
 
-  // Inject @page rule for the chosen page size
+  // @page rule
   useEffect(() => {
     const styleEl = document.createElement('style');
     styleEl.id = 'resume-page-rule';
@@ -137,48 +117,53 @@ function BuilderMode() {
     };
   }, [pageSize]);
 
-  // Keyboard shortcuts: Ctrl/Cmd + Z / Y
+  // Keyboard undo/redo
+  useUndoableShortcuts(undoable);
+
+  // Read-aloud
   useEffect(() => {
-    const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undoable.undo();
-      } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
-        e.preventDefault();
-        undoable.redo();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [undoable]);
+    narratorRef.current = new ResumeNarrator(lang);
+    narratorRef.current.setOnEnd(() => setReadingAloud(false));
+    return () => narratorRef.current?.stop();
+  }, [lang]);
+
+  const toggleReadAloud = () => {
+    const n = narratorRef.current;
+    if (!n || !n.isSupported()) {
+      alert(t('builder.readAloudUnsupported'));
+      return;
+    }
+    if (readingAloud) {
+      n.stop();
+      setReadingAloud(false);
+    } else {
+      n.speak(buildResumeNarration(resume, t));
+      setReadingAloud(true);
+    }
+  };
 
   const handlePageCount = useCallback((n) => setPageCount(n), []);
 
+  // === Update helpers ===
   const setResume = undoable.setState;
-  const updatePersonal = (key, value) =>
-    setResume((r) => ({ ...r, personal: { ...r.personal, [key]: value } }));
-  const updateField = (key, value) =>
-    setResume((r) => ({ ...r, [key]: value }));
-  const updateListItem = (key, i, field, value) =>
+  const updatePersonal = (k, v) => setResume((r) => ({ ...r, personal: { ...r.personal, [k]: v } }));
+  const updateField = (k, v) => setResume((r) => ({ ...r, [k]: v }));
+  const updateListItem = (k, i, f, v) =>
     setResume((r) => {
-      const list = [...r[key]];
-      list[i] = { ...list[i], [field]: value };
-      return { ...r, [key]: list };
+      const list = [...r[k]];
+      list[i] = { ...list[i], [f]: v };
+      return { ...r, [k]: list };
     });
-  const addListItem = (key, item) =>
-    setResume((r) => ({ ...r, [key]: [...r[key], item] }));
-  const removeListItem = (key, i) =>
-    setResume((r) => ({ ...r, [key]: r[key].filter((_, idx) => idx !== i) }));
-  const moveListItem = (key, i, dir) =>
+  const addListItem = (k, item) => setResume((r) => ({ ...r, [k]: [...r[k], item] }));
+  const removeListItem = (k, i) => setResume((r) => ({ ...r, [k]: r[k].filter((_, idx) => idx !== i) }));
+  const moveListItem = (k, i, dir) =>
     setResume((r) => {
-      const list = [...r[key]];
+      const list = [...r[k]];
       const newIdx = i + dir;
       if (newIdx < 0 || newIdx >= list.length) return r;
       [list[i], list[newIdx]] = [list[newIdx], list[i]];
-      return { ...r, [key]: list };
+      return { ...r, [k]: list };
     });
-
   const moveSection = (id, dir) =>
     setResume((r) => {
       const list = [...r.sectionsConfig];
@@ -188,7 +173,6 @@ function BuilderMode() {
       [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
       return { ...r, sectionsConfig: list };
     });
-
   const toggleSection = (id) =>
     setResume((r) => ({
       ...r,
@@ -203,32 +187,6 @@ function BuilderMode() {
   };
 
   const print = () => window.print();
-
-  // === Read-aloud ===
-  useEffect(() => {
-    narratorRef.current = new ResumeNarrator(lang);
-    narratorRef.current.setOnEnd(() => setReadingAloud(false));
-    return () => {
-      narratorRef.current?.stop();
-    };
-  }, [lang]);
-
-  const toggleReadAloud = () => {
-    const n = narratorRef.current;
-    if (!n || !n.isSupported()) {
-      alert(t('builder.readAloudUnsupported'));
-      return;
-    }
-    if (readingAloud) {
-      n.stop();
-      setReadingAloud(false);
-    } else {
-      const text = buildResumeNarration(resume, t);
-      n.speak(text);
-      setReadingAloud(true);
-    }
-  };
-
   const safeFilenameStem = () =>
     draftName.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'resume';
 
@@ -236,13 +194,9 @@ function BuilderMode() {
     if (exportingPdf) return;
     setExportingPdf(true);
     try {
-      const { exportToPdf } = await import('../lib/exportPdf');
+      const { exportToPdf } = await import('../lib/exporters/exportPdf');
       const element = document.querySelector('.resume-doc');
-      await exportToPdf({
-        element,
-        filename: `${safeFilenameStem()}.pdf`,
-        pageSize,
-      });
+      await exportToPdf({ element, filename: `${safeFilenameStem()}.pdf`, pageSize });
     } catch (err) {
       console.error('PDF export failed:', err);
       alert(t('builder.pdfFailed'));
@@ -255,8 +209,8 @@ function BuilderMode() {
     if (exportingDocx) return;
     setExportingDocx(true);
     try {
-      const { exportToDocx } = await import('../lib/exportDocx');
-      await exportToDocx(resume, t, `${safeFilenameStem()}.docx`);
+      const { exportResumeToDocx } = await import('../lib/exporters/exportResumeDocx');
+      await exportResumeToDocx(resume, t, `${safeFilenameStem()}.docx`);
     } catch (err) {
       console.error('DOCX export failed:', err);
       alert(t('builder.docxFailed'));
@@ -265,37 +219,29 @@ function BuilderMode() {
     }
   };
 
-  // Photo upload — reads file as data URL
+  // Photo
   const photoInputRef = useRef(null);
   const onPhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2_000_000) {
-      alert(t('builder.photoTooLarge'));
-      return;
-    }
+    if (file.size > 2_000_000) { alert(t('builder.photoTooLarge')); return; }
     const reader = new FileReader();
     reader.onload = (ev) => updatePersonal('photo', ev.target.result);
     reader.readAsDataURL(file);
   };
   const clearPhoto = () => updatePersonal('photo', '');
 
-  const commitDraftName = () => {
-    if (draftName.trim()) {
-      renameDraft(draftId, draftName.trim());
-    }
-    setEditingName(false);
+  const onDraftNameChange = (newName) => {
+    setDraftName(newName);
+    renameDraft(draftId, newName);
   };
 
   // === Section render registry ===
   const renderSection = (sectionId) => {
     switch (sectionId) {
       case 'summary':
-        return (
-          <Field label={t('builder.fieldSummary')} value={resume.summary}
-            onChange={(v) => updateField('summary', v)} multiline rows={4}
-            hint={t('builder.bulletHint')} />
-        );
+        return <Field label={t('builder.fieldSummary')} value={resume.summary}
+          onChange={(v) => updateField('summary', v)} multiline rows={4} hint={t('builder.bulletHint')} />;
 
       case 'experience':
         return (
@@ -303,8 +249,7 @@ function BuilderMode() {
             {resume.experiences.map((exp, i) => (
               <RepeatBlock key={i} idx={i} count={resume.experiences.length}
                 onMove={(dir) => moveListItem('experiences', i, dir)}
-                onRemove={() => removeListItem('experiences', i)}
-                t={t}>
+                onRemove={() => removeListItem('experiences', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldRole')} value={exp.role}
                     onChange={(v) => updateListItem('experiences', i, 'role', v)} />
@@ -315,8 +260,7 @@ function BuilderMode() {
                   <div />
                   <DateField label={t('builder.fieldStart')} value={exp.start}
                     onChange={(v) => updateListItem('experiences', i, 'start', v)} />
-                  <DateField label={t('builder.fieldEnd')} value={exp.end}
-                    disabled={exp.current}
+                  <DateField label={t('builder.fieldEnd')} value={exp.end} disabled={exp.current}
                     onChange={(v) => updateListItem('experiences', i, 'end', v)} />
                 </div>
                 <label className="checkbox-row">
@@ -345,8 +289,7 @@ function BuilderMode() {
             {resume.educations.map((edu, i) => (
               <RepeatBlock key={i} idx={i} count={resume.educations.length}
                 onMove={(dir) => moveListItem('educations', i, dir)}
-                onRemove={() => removeListItem('educations', i)}
-                t={t}>
+                onRemove={() => removeListItem('educations', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldDegree')} value={edu.degree}
                     onChange={(v) => updateListItem('educations', i, 'degree', v)} />
@@ -377,8 +320,7 @@ function BuilderMode() {
             {resume.certifications.map((cert, i) => (
               <RepeatBlock key={i} idx={i} count={resume.certifications.length}
                 onMove={(dir) => moveListItem('certifications', i, dir)}
-                onRemove={() => removeListItem('certifications', i)}
-                t={t}>
+                onRemove={() => removeListItem('certifications', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldCertName')} value={cert.name}
                     onChange={(v) => updateListItem('certifications', i, 'name', v)} />
@@ -406,8 +348,7 @@ function BuilderMode() {
             {resume.projects.map((p, i) => (
               <RepeatBlock key={i} idx={i} count={resume.projects.length}
                 onMove={(dir) => moveListItem('projects', i, dir)}
-                onRemove={() => removeListItem('projects', i)}
-                t={t}>
+                onRemove={() => removeListItem('projects', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldProjectName')} value={p.name}
                     onChange={(v) => updateListItem('projects', i, 'name', v)} />
@@ -417,14 +358,11 @@ function BuilderMode() {
                 <Field label={t('builder.fieldProjectLink')} value={p.link}
                   onChange={(v) => updateListItem('projects', i, 'link', v)} />
                 <Field label={t('builder.fieldProjectDesc')} value={p.description}
-                  onChange={(v) => updateListItem('projects', i, 'description', v)}
-                  multiline rows={3} />
+                  onChange={(v) => updateListItem('projects', i, 'description', v)} multiline rows={3} />
               </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
-              onClick={() => addListItem('projects', {
-                name: '', description: '', link: '', dates: '',
-              })}>
+              onClick={() => addListItem('projects', { name: '', description: '', link: '', dates: '' })}>
               {t('builder.addProject')}
             </button>
           </>
@@ -436,8 +374,7 @@ function BuilderMode() {
             {resume.awards.map((a, i) => (
               <RepeatBlock key={i} idx={i} count={resume.awards.length}
                 onMove={(dir) => moveListItem('awards', i, dir)}
-                onRemove={() => removeListItem('awards', i)}
-                t={t}>
+                onRemove={() => removeListItem('awards', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldAwardName')} value={a.name}
                     onChange={(v) => updateListItem('awards', i, 'name', v)} />
@@ -461,8 +398,7 @@ function BuilderMode() {
             {resume.volunteer.map((v, i) => (
               <RepeatBlock key={i} idx={i} count={resume.volunteer.length}
                 onMove={(dir) => moveListItem('volunteer', i, dir)}
-                onRemove={() => removeListItem('volunteer', i)}
-                t={t}>
+                onRemove={() => removeListItem('volunteer', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldVolRole')} value={v.role}
                     onChange={(val) => updateListItem('volunteer', i, 'role', val)} />
@@ -472,8 +408,7 @@ function BuilderMode() {
                     onChange={(val) => updateListItem('volunteer', i, 'dates', val)} />
                 </div>
                 <Field label={t('builder.fieldVolDesc')} value={v.description}
-                  onChange={(val) => updateListItem('volunteer', i, 'description', val)}
-                  multiline rows={2} />
+                  onChange={(val) => updateListItem('volunteer', i, 'description', val)} multiline rows={2} />
               </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
@@ -491,14 +426,12 @@ function BuilderMode() {
             {resume.skills.map((g, i) => (
               <RepeatBlock key={i} idx={i} count={resume.skills.length}
                 onMove={(dir) => moveListItem('skills', i, dir)}
-                onRemove={() => removeListItem('skills', i)}
-                t={t}>
+                onRemove={() => removeListItem('skills', i)} t={t}>
                 <Field label={t('builder.fieldSkillCategory')} value={g.category}
                   onChange={(v) => updateListItem('skills', i, 'category', v)}
                   hint={t('builder.skillCategoryHint')} />
                 <Field label={t('builder.fieldSkillItems')} value={g.items}
-                  onChange={(v) => updateListItem('skills', i, 'items', v)}
-                  multiline rows={2} />
+                  onChange={(v) => updateListItem('skills', i, 'items', v)} multiline rows={2} />
               </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
@@ -514,8 +447,7 @@ function BuilderMode() {
             {resume.languages.map((lang, i) => (
               <RepeatBlock key={i} idx={i} count={resume.languages.length}
                 onMove={(dir) => moveListItem('languages', i, dir)}
-                onRemove={() => removeListItem('languages', i)}
-                t={t}>
+                onRemove={() => removeListItem('languages', i)} t={t}>
                 <div className="grid-2">
                   <Field label={t('builder.fieldLangName')} value={lang.name}
                     onChange={(v) => updateListItem('languages', i, 'name', v)} />
@@ -532,11 +464,8 @@ function BuilderMode() {
         );
 
       case 'interests':
-        return (
-          <Field label={t('builder.fieldInterests')} value={resume.interests}
-            onChange={(v) => updateField('interests', v)}
-            multiline rows={2} hint={t('builder.interestsHint')} />
-        );
+        return <Field label={t('builder.fieldInterests')} value={resume.interests}
+          onChange={(v) => updateField('interests', v)} multiline rows={2} hint={t('builder.interestsHint')} />;
 
       default:
         return null;
@@ -547,115 +476,23 @@ function BuilderMode() {
 
   return (
     <div className="builder-layout">
-      {/* LEFT: form panel */}
       <div className="builder-form no-print" data-reveal>
-        {/* Draft name + toolbar */}
-        <div className="builder-draft-row">
-          {editingName ? (
-            <input type="text" className="draft-name-edit"
-              value={draftName} autoFocus
-              onChange={(e) => setDraftName(e.target.value)}
-              onBlur={commitDraftName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitDraftName();
-                if (e.key === 'Escape') setEditingName(false);
-              }} />
-          ) : (
-            <h2 className="draft-name-display"
-              onClick={() => setEditingName(true)}
-              title={t('builder.renameHint')}>
-              {draftName}
-              <span className="rename-icon" aria-hidden="true">✎</span>
-            </h2>
-          )}
-        </div>
+        <DraftNameRow name={draftName} onChange={onDraftNameChange} t={t} />
 
-        <div className="builder-toolbar">
-          <div className="builder-template-picker">
-            <span className="picker-label">{t('builder.templateLabel')}</span>
-            <div className="picker-buttons">
-              {['classic', 'modern', 'compact'].map((tmpl) => (
-                <button key={tmpl} type="button"
-                  className={`picker-btn ${template === tmpl ? 'is-active' : ''}`}
-                  onClick={() => setTemplate(tmpl)}>
-                  {t(`builder.template${tmpl[0].toUpperCase() + tmpl.slice(1)}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="builder-template-picker">
-            <span className="picker-label">{t('builder.pageSizeLabel')}</span>
-            <div className="picker-buttons">
-              {['a4', 'letter'].map((size) => (
-                <button key={size} type="button"
-                  className={`picker-btn ${pageSize === size ? 'is-active' : ''}`}
-                  onClick={() => setPageSize(size)}>
-                  {t(`builder.pageSize${size === 'a4' ? 'A4' : 'Letter'}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="builder-template-picker">
-            <span className="picker-label">{t('builder.accentLabel')}</span>
-            <div className="accent-chips">
-              {ACCENT_PRESETS.map((p) => (
-                <button key={p.id} type="button"
-                  className={`accent-chip ${accentId === p.id ? 'is-active' : ''}`}
-                  style={{ background: p.deep, borderColor: p.deep }}
-                  onClick={() => setAccentId(p.id)}
-                  aria-label={t(`builder.accent.${p.id}`)}
-                  title={t(`builder.accent.${p.id}`)}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="builder-actions">
-            <button type="button" className="cta-ghost"
-              onClick={undoable.undo} disabled={!undoable.canUndo}
-              title={t('builder.undoHint')}>
-              ↶ {t('builder.undoBtn')}
-            </button>
-            <button type="button" className="cta-ghost"
-              onClick={undoable.redo} disabled={!undoable.canRedo}
-              title={t('builder.redoHint')}>
-              ↷ {t('builder.redoBtn')}
-            </button>
-            <button type="button" className="cta-ghost"
-              onClick={() => setShowResetModal(true)}>
-              {t('builder.resetBtn')}
-            </button>
-            <button type="button" className="cta-ghost"
-              onClick={print}>
-              {t('builder.printBtn')}
-            </button>
-            <button type="button" className="cta-ghost"
-              onClick={exportDocx} disabled={exportingDocx}>
-              {exportingDocx ? t('builder.exportingDocx') : t('builder.docxBtn')}
-            </button>
-            <button type="button" className="cta-ghost"
-              onClick={exportPdf} disabled={exportingPdf}>
-              {exportingPdf ? t('builder.exportingPdf') : t('builder.pdfBtn')}
-            </button>
-          </div>
-        </div>
-
-        {/* Differentiating UX features row */}
-        <div className="builder-ux-row">
-          <button type="button"
-            className={`ux-toggle ${sixSecondView ? 'is-active' : ''}`}
-            onClick={() => setSixSecondView((v) => !v)}
-            title={t('builder.sixSecondHint')}>
-            <span className="ux-toggle-icon">👁</span>
-            {t('builder.sixSecondBtn')}
-          </button>
-          <button type="button"
-            className={`ux-toggle ${readingAloud ? 'is-active' : ''}`}
-            onClick={toggleReadAloud}
-            title={t('builder.readAloudHint')}>
-            <span className="ux-toggle-icon">{readingAloud ? '⏹' : '🔊'}</span>
-            {readingAloud ? t('builder.readAloudStop') : t('builder.readAloudBtn')}
-          </button>
-        </div>
+        <BuilderToolbar
+          t={t}
+          templates={['classic', 'modern', 'compact']}
+          templateLabelPrefix="builder.template"
+          template={template} onTemplate={setTemplate}
+          pageSize={pageSize} onPageSize={setPageSize}
+          accentId={accentId} onAccent={setAccentId}
+          canUndo={undoable.canUndo} canRedo={undoable.canRedo}
+          onUndo={undoable.undo} onRedo={undoable.redo}
+          onReset={() => setShowResetModal(true)}
+          onPrint={print}
+          onExportPdf={exportPdf} onExportDocx={exportDocx}
+          exportingPdf={exportingPdf} exportingDocx={exportingDocx}
+        />
 
         <div className="builder-meta-row">
           <p className="saved-note">{t('builder.savedNote')}</p>
@@ -669,8 +506,21 @@ function BuilderMode() {
           <p className="overflow-hint">{t('builder.overflowHint')}</p>
         )}
 
+        <div className="builder-ux-row">
+          <button type="button" className={`ux-toggle ${sixSecondView ? 'is-active' : ''}`}
+            onClick={() => setSixSecondView((v) => !v)} title={t('builder.sixSecondHint')}>
+            <span className="ux-toggle-icon">👁</span>
+            {t('builder.sixSecondBtn')}
+          </button>
+          <button type="button" className={`ux-toggle ${readingAloud ? 'is-active' : ''}`}
+            onClick={toggleReadAloud} title={t('builder.readAloudHint')}>
+            <span className="ux-toggle-icon">{readingAloud ? '⏹' : '🔊'}</span>
+            {readingAloud ? t('builder.readAloudStop') : t('builder.readAloudBtn')}
+          </button>
+        </div>
+
         {/* Personal — always first, not reorderable */}
-        <FieldSet title={t('builder.sectionPersonal')}>
+        <FieldSet title={t('builder.sectionPersonal')} t={t}>
           <div className="grid-2">
             <Field label={t('builder.fieldName')} value={resume.personal.name}
               onChange={(v) => updatePersonal('name', v)} />
@@ -689,16 +539,13 @@ function BuilderMode() {
             <Field label={t('builder.fieldGithub')} value={resume.personal.github}
               onChange={(v) => updatePersonal('github', v)} />
           </div>
-          {/* Photo */}
           <div className="photo-field">
             <label className="photo-label">{t('builder.fieldPhoto')}</label>
             <div className="photo-row">
               {resume.personal.photo ? (
                 <img src={resume.personal.photo} alt="" className="photo-preview" />
               ) : (
-                <div className="photo-placeholder">
-                  <span>{t('builder.photoNone')}</span>
-                </div>
+                <div className="photo-placeholder"><span>{t('builder.photoNone')}</span></div>
               )}
               <div className="photo-actions">
                 <input type="file" accept="image/*" ref={photoInputRef}
@@ -718,10 +565,8 @@ function BuilderMode() {
           </div>
         </FieldSet>
 
-        {/* Reorderable sections */}
         {resume.sectionsConfig.map((s, idx) => (
-          <FieldSet key={s.id} title={t(sectionTitleKey(s.id))}
-            visible={s.visible}
+          <FieldSet key={s.id} title={t(sectionTitleKey(s.id))} visible={s.visible}
             onToggle={() => toggleSection(s.id)}
             onMoveUp={idx > 0 ? () => moveSection(s.id, -1) : null}
             onMoveDown={idx < resume.sectionsConfig.length - 1 ? () => moveSection(s.id, +1) : null}
@@ -731,7 +576,6 @@ function BuilderMode() {
         ))}
       </div>
 
-      {/* RIGHT: live preview */}
       <div className={`builder-preview-wrap ${sixSecondView ? 'is-six-second' : ''}`}>
         <div className="builder-preview-inner" data-page-count={pageCount} style={accentVars(accent)}>
           {sixSecondView && (
@@ -745,108 +589,10 @@ function BuilderMode() {
         </div>
       </div>
 
-      {/* Reset modal */}
-      {showResetModal && (
-        <div className="modal-backdrop no-print"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowResetModal(false); }}>
-          <div className="modal" role="dialog" aria-modal="true">
-            <h3>{t('builder.resetModalTitle')}</h3>
-            <p>{t('builder.resetModalBody')}</p>
-            <div className="modal-actions">
-              <button type="button" className="cta-ghost"
-                onClick={() => setShowResetModal(false)}>
-                {t('builder.cancelBtn')}
-              </button>
-              <button type="button" className="cta-primary" onClick={reset}>
-                {t('builder.confirmResetBtn')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResetModal open={showResetModal} t={t}
+        onCancel={() => setShowResetModal(false)} onConfirm={reset} />
     </div>
   );
 }
 
-function FieldSet({ title, children, visible, onToggle, onMoveUp, onMoveDown, t }) {
-  const showControls = onToggle != null;
-  return (
-    <fieldset className={`builder-fieldset ${visible === false ? 'is-hidden' : ''}`}>
-      <legend>
-        <span>{title}</span>
-        {showControls && (
-          <span className="fieldset-controls">
-            <button type="button" className="fs-ctrl"
-              onClick={onMoveUp} disabled={!onMoveUp} aria-label="Move up">↑</button>
-            <button type="button" className="fs-ctrl"
-              onClick={onMoveDown} disabled={!onMoveDown} aria-label="Move down">↓</button>
-            <button type="button" className="fs-ctrl fs-ctrl-toggle"
-              onClick={onToggle} aria-pressed={!visible}>
-              {visible ? t('builder.hideBtn') : t('builder.showBtn')}
-            </button>
-          </span>
-        )}
-      </legend>
-      {children}
-    </fieldset>
-  );
-}
-
-function RepeatBlock({ children, idx, count, onMove, onRemove, t }) {
-  return (
-    <div className="repeat-block">
-      <div className="repeat-block-controls">
-        <button type="button" className="fs-ctrl"
-          onClick={() => onMove(-1)} disabled={idx === 0} aria-label="Move up">↑</button>
-        <button type="button" className="fs-ctrl"
-          onClick={() => onMove(+1)} disabled={idx === count - 1} aria-label="Move down">↓</button>
-        <button type="button" className="remove-btn-inline" onClick={onRemove}>
-          {t('builder.removeBtn')}
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, multiline, rows = 2, type = 'text', hint }) {
-  return (
-    <div className="builder-field">
-      <label>{label}</label>
-      {multiline ? (
-        <textarea value={value || ''} rows={rows}
-          onChange={(e) => onChange(e.target.value)} />
-      ) : (
-        <input type={type} value={value || ''}
-          onChange={(e) => onChange(e.target.value)} />
-      )}
-      {hint && <p className="field-hint">{hint}</p>}
-    </div>
-  );
-}
-
-function DateField({ label, value, onChange, disabled }) {
-  // Accepts YYYY-MM (from <input type="month">) OR free text fallback
-  const isYearMonth = /^\d{4}-\d{2}$/.test(value || '');
-  const [useText, setUseText] = useState(!isYearMonth && !!value);
-
-  return (
-    <div className="builder-field">
-      <label>{label}</label>
-      {useText ? (
-        <input type="text" value={value || ''} disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="e.g. Jan 2020" />
-      ) : (
-        <input type="month" value={isYearMonth ? value : ''} disabled={disabled}
-          onChange={(e) => onChange(e.target.value)} />
-      )}
-      <button type="button" className="field-toggle"
-        onClick={() => setUseText((u) => !u)}>
-        {useText ? '📅 Use picker' : 'abc Use text'}
-      </button>
-    </div>
-  );
-}
-
-export default BuilderMode;
+export default ResumeBuilder;

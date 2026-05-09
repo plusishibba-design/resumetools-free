@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLanguage } from '../LanguageContext';
+import { useLanguage } from '../../LanguageContext';
 import {
   listDrafts,
   loadDraft,
@@ -9,9 +9,9 @@ import {
   renameDraft,
   setCurrentDraftId,
   getCurrentDraftId,
-} from '../lib/draftsStore';
-import { DEFAULT_DRAFT_BODY } from '../lib/defaultResume';
-import { LETTER_TYPE_META } from '../lib/defaultLetters';
+} from '../../lib/drafts/draftsStore';
+import { DEFAULT_DRAFT_BODY } from '../../lib/drafts/defaultResume';
+import { LETTER_TYPE_META } from '../../lib/drafts/defaultLetters';
 
 // Determine the route slug for opening a draft based on its type
 function routeForDraft(body) {

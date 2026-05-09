@@ -1,5 +1,5 @@
 import React from 'react';
-import { analyzeBulletsBlock } from '../lib/bulletCoach';
+import { analyzeBulletsBlock } from '../../lib/analysis/bulletCoach';
 
 // Live-feedback panel that sits under a bullets textarea.
 // Renders one row per non-empty bullet line with quality badges.

@@ -1,6 +1,6 @@
 import React from 'react';
-import { useLanguage } from '../LanguageContext';
-import { LETTER_TYPE_META } from '../lib/defaultLetters';
+import { useLanguage } from '../../LanguageContext';
+import { LETTER_TYPE_META } from '../../lib/drafts/defaultLetters';
 
 const TOOLS = [
   {

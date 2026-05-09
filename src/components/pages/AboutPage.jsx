@@ -1,6 +1,6 @@
 import React from 'react';
-import { useLanguage } from '../LanguageContext';
-import EditorialOrnament from './EditorialOrnament';
+import { useLanguage } from '../../LanguageContext';
+import EditorialOrnament from '../EditorialOrnament';
 
 const PRINCIPLES = [
   { num: '01', titleKey: 'about.principle1Title', bodyKey: 'about.principle1Body' },

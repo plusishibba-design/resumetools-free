@@ -1,7 +1,7 @@
 // Lazy-loaded DOCX exporter. Calling exportToDocx() dynamically imports
 // the docx package so it's not in the initial bundle.
 
-import { formatDateRange } from './formatDate';
+import { formatDateRange } from '../analysis/formatDate';
 
 const COLOR_INK = '1A1614';
 const COLOR_INK_SOFT = '5A4F48';

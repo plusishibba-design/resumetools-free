@@ -1,15 +1,15 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { LanguageProvider, useLanguage } from './LanguageContext';
-import HomeHero from './components/HomeHero';
+import HomeHero from './components/pages/HomeHero';
 import './App.css';
 
-const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('./components/TermsOfService'));
-const ContactPage = lazy(() => import('./components/ContactPage'));
-const AboutPage = lazy(() => import('./components/AboutPage'));
-const BuilderMode = lazy(() => import('./components/BuilderMode'));
+const PrivacyPolicy = lazy(() => import('./components/pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./components/pages/TermsOfService'));
+const ContactPage = lazy(() => import('./components/pages/ContactPage'));
+const AboutPage = lazy(() => import('./components/pages/AboutPage'));
+const ResumeBuilder = lazy(() => import('./components/ResumeBuilder'));
 const LetterBuilder = lazy(() => import('./components/LetterBuilder'));
-const DraftsPage = lazy(() => import('./components/DraftsPage'));
+const DraftsPage = lazy(() => import('./components/pages/DraftsPage'));
 
 const LANGS = [
   { code: 'en', label: 'English' },
@@ -121,7 +121,7 @@ function AppInner() {
 
   const renderPage = () => {
     // Resume: support legacy /builder URL too
-    if (page === 'resume' || page === 'builder') return <BuilderMode />;
+    if (page === 'resume' || page === 'builder') return <ResumeBuilder />;
     if (LETTER_ROUTES[page]) return <LetterBuilder letterType={LETTER_ROUTES[page]} key={page} />;
     switch (page) {
       case 'drafts': return <DraftsPage onOpen={(slug) => navigateTo(slug || 'resume')} />;

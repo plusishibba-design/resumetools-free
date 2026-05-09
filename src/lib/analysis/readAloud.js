@@ -115,6 +115,26 @@ export function buildResumeNarration(resume, t) {
   return lines.join(' ');
 }
 
+export function buildLetterNarration(letter) {
+  const lines = [];
+  if (letter.sender?.name) lines.push(letter.sender.name + '.');
+  if (letter.date) lines.push(letter.date + '.');
+  const recipient = [letter.recipient?.name, letter.recipient?.title, letter.recipient?.company]
+    .filter(Boolean).join(', ');
+  if (recipient) lines.push(recipient + '.');
+  if (letter.subject) lines.push(`Subject: ${letter.subject}.`);
+  if (letter.greeting) lines.push(letter.greeting);
+  if (letter.body) {
+    for (const p of String(letter.body).split('\n\n')) {
+      const clean = stripBold(p.trim());
+      if (clean) lines.push(clean);
+    }
+  }
+  if (letter.closing) lines.push(letter.closing);
+  if (letter.signature) lines.push(letter.signature);
+  return lines.join(' ');
+}
+
 export class ResumeNarrator {
   constructor(lang = 'en') {
     this.lang = lang;

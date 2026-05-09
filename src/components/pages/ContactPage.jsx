@@ -1,6 +1,6 @@
 import React from 'react';
-import { useLanguage } from '../LanguageContext';
-import EditorialOrnament from './EditorialOrnament';
+import { useLanguage } from '../../LanguageContext';
+import EditorialOrnament from '../EditorialOrnament';
 
 const EMAIL = 'aamujou1@gmail.com';
 const SITE_PREFIX = '[Career Tools]';
