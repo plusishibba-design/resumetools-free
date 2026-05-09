@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '../LanguageContext';
 import {
   listDrafts,
@@ -11,6 +11,30 @@ import {
   getCurrentDraftId,
 } from '../lib/draftsStore';
 import { DEFAULT_DRAFT_BODY } from '../lib/defaultResume';
+import { LETTER_TYPE_META } from '../lib/defaultLetters';
+
+// Determine the route slug for opening a draft based on its type
+function routeForDraft(body) {
+  if (!body) return 'resume';
+  if (body.type === 'letter' && body.letterType) return body.letterType;
+  return 'resume'; // default + legacy
+}
+
+// Display label for the draft type
+function typeLabelKey(body) {
+  if (!body) return 'home.tool.resume.name';
+  if (body.type === 'letter' && body.letterType && LETTER_TYPE_META[body.letterType]) {
+    return LETTER_TYPE_META[body.letterType].nameKey;
+  }
+  return 'home.tool.resume.name';
+}
+
+function typeIcon(body) {
+  if (body?.type === 'letter' && body.letterType && LETTER_TYPE_META[body.letterType]) {
+    return LETTER_TYPE_META[body.letterType].icon;
+  }
+  return '☷';
+}
 
 function DraftsPage({ onOpen }) {
   const { t, lang } = useLanguage();
@@ -27,13 +51,14 @@ function DraftsPage({ onOpen }) {
 
   const openDraft = (id) => {
     setCurrentDraftId(id);
-    onOpen?.();
+    const body = loadDraft(id);
+    onOpen?.(routeForDraft(body));
   };
 
   const newBlank = () => {
-    const id = createDraft(t('drafts.newName'), DEFAULT_DRAFT_BODY);
+    const id = createDraft(t('drafts.newName'), { type: 'resume', ...DEFAULT_DRAFT_BODY });
     setCurrentDraftId(id);
-    onOpen?.();
+    onOpen?.('resume');
   };
 
   const duplicate = (id) => {
@@ -64,13 +89,17 @@ function DraftsPage({ onOpen }) {
   const formatTime = (ts) => {
     if (!ts) return '';
     try {
-      return new Date(ts).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', {
+      const locale = lang === 'ja' ? 'ja-JP' : lang === 'vi' ? 'vi-VN' : lang === 'zh' ? 'zh-CN' : lang === 'id' ? 'id-ID' : 'en-US';
+      return new Date(ts).toLocaleString(locale, {
         year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
       });
     } catch {
       return new Date(ts).toLocaleString();
     }
   };
+
+  // Sort by updatedAt desc
+  const sorted = [...drafts].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   return (
     <div className="editorial-page">
@@ -93,42 +122,42 @@ function DraftsPage({ onOpen }) {
           </button>
         </div>
 
-        {drafts.length === 0 ? (
+        {sorted.length === 0 ? (
           <p className="drafts-empty" data-reveal>{t('drafts.empty')}</p>
         ) : (
           <ul className="drafts-list" data-reveal>
-            {drafts.map((d) => {
+            {sorted.map((d) => {
               const body = loadDraft(d.id);
+              const isLetter = body?.type === 'letter';
               const personal = body?.resume?.personal || {};
-              const role = personal.headline || '';
+              const sender = body?.letter?.sender || {};
               const isCurrent = d.id === current;
+              const subtitle = isLetter
+                ? (sender.name || '')
+                : ((personal.name || '') + (personal.headline ? ' · ' + personal.headline : ''));
               return (
                 <li key={d.id} className={`draft-card ${isCurrent ? 'is-current' : ''}`}>
                   <div className="draft-card-main">
                     {editingId === d.id ? (
-                      <input
-                        type="text"
-                        className="draft-name-edit"
-                        value={editingName}
-                        autoFocus
+                      <input type="text" className="draft-name-edit"
+                        value={editingName} autoFocus
                         onChange={(e) => setEditingName(e.target.value)}
                         onBlur={commitRename}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') commitRename();
                           if (e.key === 'Escape') { setEditingId(null); setEditingName(''); }
-                        }}
-                      />
+                        }} />
                     ) : (
                       <h3 className="draft-name" onClick={() => startRename(d)}>
                         {d.name}
                         {isCurrent && <span className="draft-current-badge">{t('drafts.currentBadge')}</span>}
                       </h3>
                     )}
-                    <p className="draft-meta">
-                      {personal.name && <span>{personal.name}</span>}
-                      {personal.name && role && <span className="sep"> · </span>}
-                      {role && <span>{role}</span>}
+                    <p className="draft-type">
+                      <span className="draft-type-icon">{typeIcon(body)}</span>
+                      <span className="draft-type-name">{t(typeLabelKey(body))}</span>
                     </p>
+                    {subtitle && <p className="draft-meta">{subtitle}</p>}
                     <p className="draft-updated">
                       {t('drafts.updated')}: {formatTime(d.updatedAt)}
                     </p>

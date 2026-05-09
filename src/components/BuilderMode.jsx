@@ -118,7 +118,7 @@ function BuilderMode() {
 
   // Persist on every change
   useEffect(() => {
-    saveDraft(draftId, { resume, template, pageSize });
+    saveDraft(draftId, { type: 'resume', resume, template, pageSize });
   }, [resume, template, pageSize, draftId]);
 
   // Inject @page rule for the chosen page size

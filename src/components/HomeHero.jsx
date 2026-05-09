@@ -1,5 +1,21 @@
 import React from 'react';
 import { useLanguage } from '../LanguageContext';
+import { LETTER_TYPE_META } from '../lib/defaultLetters';
+
+const TOOLS = [
+  {
+    slug: 'resume',
+    nameKey: 'home.tool.resume.name',
+    descKey: 'home.tool.resume.desc',
+    icon: '☷',
+  },
+  ...Object.entries(LETTER_TYPE_META).map(([slug, meta]) => ({
+    slug: slug,
+    nameKey: meta.nameKey,
+    descKey: meta.descKey,
+    icon: meta.icon,
+  })),
+];
 
 const STRENGTHS = [
   { titleKey: 'home.strength1Title', bodyKey: 'home.strength1Body' },
@@ -7,8 +23,9 @@ const STRENGTHS = [
   { titleKey: 'home.strength3Title', bodyKey: 'home.strength3Body' },
 ];
 
-function HomeHero({ onStart, onAboutClick }) {
+function HomeHero({ onSelect, onAboutClick }) {
   const { t } = useLanguage();
+
   return (
     <section className="home-hero">
       <p className="meta-stamp" style={{ marginBottom: '1.5rem' }} data-reveal>
@@ -19,7 +36,7 @@ function HomeHero({ onStart, onAboutClick }) {
         <span>SAIGON</span>
       </p>
 
-      <div className="home-hero-layout home-hero-resume">
+      <div className="home-hero-layout home-hero-tools">
         <div className="home-hero-text" data-reveal>
           <p className="eyebrow">{t('home.eyebrow')}</p>
           <h2 className="editorial-title">
@@ -28,37 +45,41 @@ function HomeHero({ onStart, onAboutClick }) {
             <em>{t('home.titleEm')}</em>
           </h2>
           <p className="editorial-lede">{t('home.lede')}</p>
-          <div className="home-cta">
-            <button className="cta-primary" onClick={onStart}>
-              {t('home.startCta')}
-            </button>
-            <button className="cta-ghost" onClick={onAboutClick}>
-              {t('home.learnCta')}
-            </button>
-          </div>
+          <button className="cta-ghost" onClick={onAboutClick}>
+            {t('home.learnCta')}
+          </button>
         </div>
 
-        <div className="home-hero-mock" data-reveal aria-hidden="true">
-          {/* Decorative resume mock — visual only */}
-          <div className="resume-mock">
-            <div className="mock-line mock-name" />
-            <div className="mock-line mock-headline" />
-            <div className="mock-line mock-contact" />
-            <div className="mock-spacer" />
-            <div className="mock-line mock-h2" />
-            <div className="mock-line mock-body" />
-            <div className="mock-line mock-body short" />
-            <div className="mock-spacer" />
-            <div className="mock-line mock-h2" />
-            <div className="mock-line mock-entry" />
-            <div className="mock-line mock-body" />
-            <div className="mock-line mock-body short" />
-            <div className="mock-line mock-entry" />
-            <div className="mock-line mock-body" />
-            <div className="mock-line mock-body short" />
-            <div className="mock-spacer" />
-            <div className="mock-line mock-h2" />
-            <div className="mock-line mock-body" />
+        <div className="home-hero-grid" data-reveal>
+          <p className="eyebrow" style={{ marginBottom: '0.5rem' }}>
+            {t('home.toolsEyebrow')}
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-serif)', fontStyle: 'italic',
+            fontSize: '0.95rem', color: 'var(--color-ink-soft)',
+            marginBottom: '1rem', maxWidth: '40ch',
+          }}>
+            {t('home.toolsBody')}
+          </p>
+          <div className="tool-grid">
+            {TOOLS.map((tool, i) => (
+              <button
+                key={tool.slug}
+                type="button"
+                className="tool-card"
+                onClick={() => onSelect(tool.slug)}
+                aria-label={t(tool.nameKey)}
+              >
+                <span className="tool-num">
+                  <span className="tool-icon">{tool.icon}</span>
+                  {' '}
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <h3 className="tool-name">{t(tool.nameKey)}</h3>
+                <p className="tool-desc">{t(tool.descKey)}</p>
+                <span className="tool-arrow" aria-hidden="true">→</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>

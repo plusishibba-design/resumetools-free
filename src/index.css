@@ -2042,6 +2042,164 @@ a:hover {
   }
 }
 
+/* === Letter document styles === */
+.letter-doc {
+  background: #ffffff;
+  color: #1a1614;
+  font-family: var(--font-sans);
+  font-size: 11pt;
+  line-height: 1.7;
+  padding: 22mm 22mm;
+}
+
+.letter-block {
+  margin: 0 0 4mm;
+}
+
+.letter-sender-name {
+  font-family: var(--font-serif);
+  font-size: 13pt;
+  font-weight: 600;
+  color: #1a1614;
+  margin: 0 0 1mm;
+  letter-spacing: -0.012em;
+}
+
+.letter-sender-line {
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  color: #5a4f48;
+  margin: 0 0 0.5mm;
+}
+
+.letter-date {
+  font-family: var(--font-serif);
+  font-size: 11pt;
+  color: #1a1614;
+  margin-top: 6mm;
+}
+
+.letter-recipient {
+  margin-top: 6mm;
+}
+
+.letter-recipient p {
+  margin: 0 0 0.6mm;
+  font-size: 11pt;
+  color: #1a1614;
+}
+
+.letter-subject {
+  margin-top: 6mm;
+  font-size: 11pt;
+  color: #1a1614;
+}
+
+.letter-greeting {
+  margin-top: 6mm;
+  font-size: 11pt;
+  color: #1a1614;
+}
+
+.letter-body {
+  margin-top: 4mm;
+  margin-bottom: 6mm;
+}
+
+.letter-body p {
+  margin: 0 0 4mm;
+  font-size: 11pt;
+  line-height: 1.7;
+  color: #3d3530;
+}
+
+.letter-closing {
+  margin-top: 6mm;
+  font-size: 11pt;
+  color: #1a1614;
+}
+
+.letter-signature {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12pt;
+  color: #1a1614;
+  margin-top: 12mm;
+}
+
+/* Letter template variants */
+.letter-formal .letter-sender {
+  text-align: right;
+}
+.letter-formal .letter-sender-name {
+  font-size: 14pt;
+}
+
+.letter-modern {
+  border-top: 2pt solid #a8704c;
+  padding-top: 18mm;
+}
+.letter-modern .letter-sender-name {
+  color: #a8704c;
+}
+
+.letter-minimal {
+  font-size: 10.5pt;
+  padding: 20mm 22mm;
+}
+.letter-minimal .letter-sender-name {
+  font-family: var(--font-serif);
+  font-size: 12pt;
+  font-weight: 500;
+}
+.letter-minimal .letter-subject {
+  font-style: italic;
+  color: #5a4f48;
+}
+
+/* === Draft type labels in DraftsPage === */
+.draft-type {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-clay-deep);
+  margin: 0.2rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.draft-type-icon {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  color: var(--color-clay-deep);
+}
+
+.draft-type-name {
+  font-weight: 500;
+}
+
+/* === Letter Builder header — type label below draft name === */
+.draft-type-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-clay-deep);
+  margin: 0.3rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* === Tool grid icon styling === */
+.tool-icon {
+  font-size: 1rem;
+  color: var(--color-clay-deep);
+  font-family: var(--font-serif);
+}
+
 .builder-field {
   margin-bottom: var(--space-3);
 }

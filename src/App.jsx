@@ -8,6 +8,7 @@ const TermsOfService = lazy(() => import('./components/TermsOfService'));
 const ContactPage = lazy(() => import('./components/ContactPage'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const BuilderMode = lazy(() => import('./components/BuilderMode'));
+const LetterBuilder = lazy(() => import('./components/LetterBuilder'));
 const DraftsPage = lazy(() => import('./components/DraftsPage'));
 
 const LANGS = [
@@ -18,16 +19,27 @@ const LANGS = [
   { code: 'zh', label: '中文' },
 ];
 
+// Letter routes map URL slug → letterType used by LetterBuilder
+const LETTER_ROUTES = {
+  'cover-letter': 'cover-letter',
+  'resignation': 'resignation',
+  'thank-you': 'thank-you',
+  'reference': 'reference',
+  'negotiation': 'negotiation',
+};
+
+const TOOL_PAGES = ['resume', 'builder', 'drafts', ...Object.keys(LETTER_ROUTES)];
+const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact'];
+const ALL_PAGES = [...TOOL_PAGES, ...STATIC_PAGES];
+
 function AppInner() {
   const [page, setPage] = useState(null);
   const [pathname, setPathname] = useState(() => (typeof window !== 'undefined' ? window.location.pathname : '/'));
   const { t, lang, setLang } = useLanguage();
 
-  const validPages = ['builder', 'drafts', 'about', 'privacy', 'terms', 'contact'];
-
   function getRouteFromPath() {
     const path = window.location.pathname.replace(/^\//, '');
-    if (validPages.includes(path)) return { page: path };
+    if (ALL_PAGES.includes(path)) return { page: path };
     return { page: null };
   }
 
@@ -49,7 +61,7 @@ function AppInner() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reveal-on-scroll observer (Studio T. Ishi signature)
+  // Reveal-on-scroll observer
   useEffect(() => {
     const intersectionObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -92,7 +104,7 @@ function AppInner() {
 
   const navigateTo = (path) => {
     window.history.pushState(null, '', '/' + path);
-    if (validPages.includes(path)) {
+    if (ALL_PAGES.includes(path)) {
       setPage(path);
     }
     setPathname('/' + path);
@@ -108,9 +120,11 @@ function AppInner() {
   };
 
   const renderPage = () => {
+    // Resume: support legacy /builder URL too
+    if (page === 'resume' || page === 'builder') return <BuilderMode />;
+    if (LETTER_ROUTES[page]) return <LetterBuilder letterType={LETTER_ROUTES[page]} key={page} />;
     switch (page) {
-      case 'builder': return <BuilderMode />;
-      case 'drafts': return <DraftsPage onOpen={() => navigateTo('builder')} />;
+      case 'drafts': return <DraftsPage onOpen={(slug) => navigateTo(slug || 'resume')} />;
       case 'about': return <AboutPage />;
       case 'privacy': return <PrivacyPolicy />;
       case 'terms': return <TermsOfService />;
@@ -119,8 +133,8 @@ function AppInner() {
     }
   };
 
-  // Builder gets a wider layout (no max-width container)
-  const containerStyle = page === 'builder'
+  const isBuilderRoute = page === 'resume' || page === 'builder' || LETTER_ROUTES[page];
+  const containerStyle = isBuilderRoute
     ? { padding: '10px 20px 20px', maxWidth: 1400, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }
     : { padding: '10px 20px 20px', maxWidth: 1200, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' };
 
@@ -135,8 +149,8 @@ function AppInner() {
           <p className="app-tagline">{t('app.subtitle')}</p>
         </div>
         <nav className="app-nav">
-          <a href="/builder" onClick={(e) => { e.preventDefault(); navigateTo('builder'); }} className={page === 'builder' ? 'active' : ''}>
-            {t('nav.builder')}
+          <a href="/" onClick={(e) => { e.preventDefault(); goHome(); }} className={isHomePath ? 'active' : ''}>
+            {t('nav.tools')}
           </a>
           <a href="/drafts" onClick={(e) => { e.preventDefault(); navigateTo('drafts'); }} className={page === 'drafts' ? 'active' : ''}>
             {t('nav.drafts')}
@@ -171,10 +185,7 @@ function AppInner() {
             {renderPage()}
           </Suspense>
         ) : isHomePath ? (
-          <HomeHero
-            onStart={() => navigateTo('builder')}
-            onAboutClick={() => navigateTo('about')}
-          />
+          <HomeHero onSelect={(slug) => navigateTo(slug)} onAboutClick={() => navigateTo('about')} />
         ) : null}
       </div>
 
