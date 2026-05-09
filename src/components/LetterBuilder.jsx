@@ -13,6 +13,7 @@ import {
 } from '../lib/draftsStore';
 import { LETTER_TYPE_META, buildDefaultLetter } from '../lib/defaultLetters';
 import { getMostRecentSender } from '../lib/sharedProfile';
+import { ACCENT_PRESETS, DEFAULT_ACCENT_ID, getAccent, accentVars } from '../lib/accentColors';
 
 // Generic builder for a single letter type. The letterType prop selects
 // the typography, default content, and i18n labels.
@@ -56,6 +57,7 @@ function LetterBuilder({ letterType }) {
       letter: draftBody.letter,
       template: draftBody.template || 'formal',
       pageSize: draftBody.pageSize || 'a4',
+      accentColor: draftBody.accentColor || DEFAULT_ACCENT_ID,
     };
   }
   const initial = initRef.current;
@@ -65,6 +67,8 @@ function LetterBuilder({ letterType }) {
   const letter = undoable.state;
   const [template, setTemplate] = useState(initial.template);
   const [pageSize, setPageSize] = useState(initial.pageSize);
+  const [accentId, setAccentId] = useState(initial.accentColor);
+  const accent = getAccent(accentId);
   const [pageCount, setPageCount] = useState(1);
   const [showResetModal, setShowResetModal] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
@@ -84,8 +88,9 @@ function LetterBuilder({ letterType }) {
       letter,
       template,
       pageSize,
+      accentColor: accentId,
     });
-  }, [letter, template, pageSize, draftId, letterType]);
+  }, [letter, template, pageSize, accentId, draftId, letterType]);
 
   // @page rule for the chosen size
   useEffect(() => {
@@ -223,6 +228,20 @@ function LetterBuilder({ letterType }) {
               ))}
             </div>
           </div>
+          <div className="builder-template-picker">
+            <span className="picker-label">{t('builder.accentLabel')}</span>
+            <div className="accent-chips">
+              {ACCENT_PRESETS.map((p) => (
+                <button key={p.id} type="button"
+                  className={`accent-chip ${accentId === p.id ? 'is-active' : ''}`}
+                  style={{ background: p.deep, borderColor: p.deep }}
+                  onClick={() => setAccentId(p.id)}
+                  aria-label={t(`builder.accent.${p.id}`)}
+                  title={t(`builder.accent.${p.id}`)}
+                />
+              ))}
+            </div>
+          </div>
           <div className="builder-actions">
             <button type="button" className="cta-ghost" onClick={undoable.undo} disabled={!undoable.canUndo}>
               ↶ {t('builder.undoBtn')}
@@ -317,7 +336,7 @@ function LetterBuilder({ letterType }) {
 
       {/* RIGHT: live preview */}
       <div className="builder-preview-wrap">
-        <div className="builder-preview-inner" data-page-count={pageCount}>
+        <div className="builder-preview-inner" data-page-count={pageCount} style={accentVars(accent)}>
           <LetterDocument letter={letter} template={template} pageSize={pageSize}
             lang={lang} onPageCount={handlePageCount} />
         </div>

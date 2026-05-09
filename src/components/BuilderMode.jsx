@@ -4,6 +4,7 @@ import ResumeDocument from './ResumeDocument';
 import BulletCoach from './BulletCoach';
 import useUndoable from '../hooks/useUndoable';
 import { ResumeNarrator, buildResumeNarration } from '../lib/readAloud';
+import { ACCENT_PRESETS, DEFAULT_ACCENT_ID, getAccent, accentVars } from '../lib/accentColors';
 import {
   migrateLegacyIfNeeded,
   getOrCreateCurrentDraft,
@@ -77,6 +78,7 @@ function BuilderMode() {
       resume: normalizeResume(draft?.resume || DEFAULT_RESUME),
       template: draft?.template || 'classic',
       pageSize: draft?.pageSize || 'a4',
+      accentColor: draft?.accentColor || DEFAULT_ACCENT_ID,
     };
   }
   const initialDraft = initRef.current;
@@ -86,6 +88,8 @@ function BuilderMode() {
   const resume = undoable.state;
   const [template, setTemplate] = useState(initialDraft.template);
   const [pageSize, setPageSize] = useState(initialDraft.pageSize);
+  const [accentId, setAccentId] = useState(initialDraft.accentColor);
+  const accent = getAccent(accentId);
   const [pageCount, setPageCount] = useState(1);
   const [showResetModal, setShowResetModal] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
@@ -118,8 +122,8 @@ function BuilderMode() {
 
   // Persist on every change
   useEffect(() => {
-    saveDraft(draftId, { type: 'resume', resume, template, pageSize });
-  }, [resume, template, pageSize, draftId]);
+    saveDraft(draftId, { type: 'resume', resume, template, pageSize, accentColor: accentId });
+  }, [resume, template, pageSize, accentId, draftId]);
 
   // Inject @page rule for the chosen page size
   useEffect(() => {
@@ -591,6 +595,20 @@ function BuilderMode() {
               ))}
             </div>
           </div>
+          <div className="builder-template-picker">
+            <span className="picker-label">{t('builder.accentLabel')}</span>
+            <div className="accent-chips">
+              {ACCENT_PRESETS.map((p) => (
+                <button key={p.id} type="button"
+                  className={`accent-chip ${accentId === p.id ? 'is-active' : ''}`}
+                  style={{ background: p.deep, borderColor: p.deep }}
+                  onClick={() => setAccentId(p.id)}
+                  aria-label={t(`builder.accent.${p.id}`)}
+                  title={t(`builder.accent.${p.id}`)}
+                />
+              ))}
+            </div>
+          </div>
           <div className="builder-actions">
             <button type="button" className="cta-ghost"
               onClick={undoable.undo} disabled={!undoable.canUndo}
@@ -715,7 +733,7 @@ function BuilderMode() {
 
       {/* RIGHT: live preview */}
       <div className={`builder-preview-wrap ${sixSecondView ? 'is-six-second' : ''}`}>
-        <div className="builder-preview-inner" data-page-count={pageCount}>
+        <div className="builder-preview-inner" data-page-count={pageCount} style={accentVars(accent)}>
           {sixSecondView && (
             <div className="six-second-banner no-print">
               <p className="six-second-eyebrow">{t('builder.sixSecondTitle')}</p>
