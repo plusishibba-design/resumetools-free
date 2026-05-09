@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLanguage } from '../LanguageContext';
 import ResumeDocument from './ResumeDocument';
+import BulletCoach from './BulletCoach';
 import useUndoable from '../hooks/useUndoable';
+import { ResumeNarrator, buildResumeNarration } from '../lib/readAloud';
 import {
   migrateLegacyIfNeeded,
   getOrCreateCurrentDraft,
@@ -50,7 +52,7 @@ function normalizeResume(r) {
 }
 
 function BuilderMode() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   // === Draft loading ===
   // One-time synchronous init: migrate legacy → load current → normalize.
@@ -88,6 +90,9 @@ function BuilderMode() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [sixSecondView, setSixSecondView] = useState(false);
+  const [readingAloud, setReadingAloud] = useState(false);
+  const narratorRef = useRef(null);
 
   // Draft name (from index)
   const [draftName, setDraftName] = useState(() => {
@@ -195,6 +200,31 @@ function BuilderMode() {
 
   const print = () => window.print();
 
+  // === Read-aloud ===
+  useEffect(() => {
+    narratorRef.current = new ResumeNarrator(lang);
+    narratorRef.current.setOnEnd(() => setReadingAloud(false));
+    return () => {
+      narratorRef.current?.stop();
+    };
+  }, [lang]);
+
+  const toggleReadAloud = () => {
+    const n = narratorRef.current;
+    if (!n || !n.isSupported()) {
+      alert(t('builder.readAloudUnsupported'));
+      return;
+    }
+    if (readingAloud) {
+      n.stop();
+      setReadingAloud(false);
+    } else {
+      const text = buildResumeNarration(resume, t);
+      n.speak(text);
+      setReadingAloud(true);
+    }
+  };
+
   const safeFilenameStem = () =>
     draftName.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'resume';
 
@@ -293,6 +323,7 @@ function BuilderMode() {
                 <Field label={t('builder.fieldBullets')} value={exp.bullets}
                   onChange={(v) => updateListItem('experiences', i, 'bullets', v)}
                   multiline rows={4} hint={t('builder.bulletHint')} />
+                <BulletCoach value={exp.bullets} t={t} />
               </RepeatBlock>
             ))}
             <button type="button" className="add-btn"
@@ -590,6 +621,24 @@ function BuilderMode() {
           </div>
         </div>
 
+        {/* Differentiating UX features row */}
+        <div className="builder-ux-row">
+          <button type="button"
+            className={`ux-toggle ${sixSecondView ? 'is-active' : ''}`}
+            onClick={() => setSixSecondView((v) => !v)}
+            title={t('builder.sixSecondHint')}>
+            <span className="ux-toggle-icon">👁</span>
+            {t('builder.sixSecondBtn')}
+          </button>
+          <button type="button"
+            className={`ux-toggle ${readingAloud ? 'is-active' : ''}`}
+            onClick={toggleReadAloud}
+            title={t('builder.readAloudHint')}>
+            <span className="ux-toggle-icon">{readingAloud ? '⏹' : '🔊'}</span>
+            {readingAloud ? t('builder.readAloudStop') : t('builder.readAloudBtn')}
+          </button>
+        </div>
+
         <div className="builder-meta-row">
           <p className="saved-note">{t('builder.savedNote')}</p>
           <p className={`page-count-note ${pageCount > 1 ? 'is-overflow' : ''}`}>
@@ -665,8 +714,14 @@ function BuilderMode() {
       </div>
 
       {/* RIGHT: live preview */}
-      <div className="builder-preview-wrap">
+      <div className={`builder-preview-wrap ${sixSecondView ? 'is-six-second' : ''}`}>
         <div className="builder-preview-inner" data-page-count={pageCount}>
+          {sixSecondView && (
+            <div className="six-second-banner no-print">
+              <p className="six-second-eyebrow">{t('builder.sixSecondTitle')}</p>
+              <p className="six-second-body">{t('builder.sixSecondBody')}</p>
+            </div>
+          )}
           <ResumeDocument resume={resume} template={template} pageSize={pageSize}
             t={t} onPageCount={handlePageCount} />
         </div>
