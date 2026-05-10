@@ -185,8 +185,11 @@ function LetterBuilder({ letterType }) {
 
         <BuilderToolbar
           t={t}
-          templates={['formal', 'modern', 'minimal']}
-          templateLabelPrefix="letter.template."
+          templates={[
+            { id: 'formal', labelKey: 'letter.template.formal' },
+            { id: 'modern', labelKey: 'letter.template.modern' },
+            { id: 'minimal', labelKey: 'letter.template.minimal' },
+          ]}
           template={template} onTemplate={setTemplate}
           pageSize={pageSize} onPageSize={setPageSize}
           accentId={accentId} onAccent={setAccentId}

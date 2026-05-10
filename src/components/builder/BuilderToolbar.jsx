@@ -1,12 +1,12 @@
 import React from 'react';
 import { ACCENT_PRESETS } from '../../lib/analysis/accentColors';
 
-// Shared toolbar used by both ResumeBuilder and LetterBuilder. The set of
-// template options is configurable per builder type.
+// Shared toolbar used by both ResumeBuilder and LetterBuilder. `templates`
+// is an array of { id, labelKey } pairs so each builder controls its own
+// i18n keys without relying on a fragile prefix-concat scheme.
 export default function BuilderToolbar({
   t,
   templates,
-  templateLabelPrefix,
   template,
   onTemplate,
   pageSize,
@@ -30,10 +30,10 @@ export default function BuilderToolbar({
         <span className="picker-label">{t('builder.templateLabel')}</span>
         <div className="picker-buttons">
           {templates.map((tmpl) => (
-            <button key={tmpl} type="button"
-              className={`picker-btn ${template === tmpl ? 'is-active' : ''}`}
-              onClick={() => onTemplate(tmpl)}>
-              {t(`${templateLabelPrefix}${tmpl}`)}
+            <button key={tmpl.id} type="button"
+              className={`picker-btn ${template === tmpl.id ? 'is-active' : ''}`}
+              onClick={() => onTemplate(tmpl.id)}>
+              {t(tmpl.labelKey)}
             </button>
           ))}
         </div>

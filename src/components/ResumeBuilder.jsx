@@ -481,8 +481,11 @@ function ResumeBuilder() {
 
         <BuilderToolbar
           t={t}
-          templates={['classic', 'modern', 'compact']}
-          templateLabelPrefix="builder.template"
+          templates={[
+            { id: 'classic', labelKey: 'builder.templateClassic' },
+            { id: 'modern', labelKey: 'builder.templateModern' },
+            { id: 'compact', labelKey: 'builder.templateCompact' },
+          ]}
           template={template} onTemplate={setTemplate}
           pageSize={pageSize} onPageSize={setPageSize}
           accentId={accentId} onAccent={setAccentId}
