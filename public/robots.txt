@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.careertools-free.com/sitemap.xml
+Sitemap: https://www.careertools-free.info/sitemap.xml
