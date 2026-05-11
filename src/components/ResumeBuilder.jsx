@@ -12,10 +12,12 @@ import { ResumeNarrator, buildResumeNarration } from '../lib/analysis/readAloud'
 import { DEFAULT_ACCENT_ID, getAccent, accentVars } from '../lib/analysis/accentColors';
 import {
   migrateLegacyIfNeeded,
-  getOrCreateCurrentDraft,
   saveDraft,
   getCurrentDraftId,
+  setCurrentDraftId,
   listDrafts,
+  loadDraft,
+  createDraft,
   renameDraft,
 } from '../lib/drafts/draftsStore';
 import { DEFAULT_DRAFT_BODY, DEFAULT_RESUME, DEFAULT_SECTIONS_CONFIG } from '../lib/drafts/defaultResume';
@@ -59,23 +61,47 @@ function ResumeBuilder() {
   const { t, lang } = useLanguage();
 
   // === One-time draft init ===
+  // Pick a resume-type draft. If the current draft is a letter, look for
+  // any existing resume draft; if none exists, create a new one. This
+  // prevents the builder from clobbering a letter draft with resume data.
   const initRef = useRef(null);
   if (initRef.current === null) {
     try { migrateLegacyIfNeeded(DEFAULT_DRAFT_BODY); } catch (e) { console.warn(e); }
-    let result;
+    let dId = null;
+    let body = null;
     try {
-      result = getOrCreateCurrentDraft(DEFAULT_DRAFT_BODY);
+      const currentId = getCurrentDraftId();
+      const current = currentId ? loadDraft(currentId) : null;
+      if (current && (!current.type || current.type === 'resume')) {
+        dId = currentId;
+        body = current;
+      } else {
+        const resumeMeta = listDrafts().find((d) => {
+          const b = loadDraft(d.id);
+          return b && (!b.type || b.type === 'resume');
+        });
+        if (resumeMeta) {
+          dId = resumeMeta.id;
+          body = loadDraft(resumeMeta.id);
+          setCurrentDraftId(dId);
+        }
+      }
+      if (!dId) {
+        dId = createDraft('Untitled', DEFAULT_DRAFT_BODY);
+        setCurrentDraftId(dId);
+        body = DEFAULT_DRAFT_BODY;
+      }
     } catch (e) {
       console.warn('Draft load error:', e);
-      result = { id: 'fallback', draft: DEFAULT_DRAFT_BODY };
+      dId = 'fallback';
+      body = DEFAULT_DRAFT_BODY;
     }
-    const { id, draft } = result;
     initRef.current = {
-      id,
-      resume: normalizeResume(draft?.resume || DEFAULT_RESUME),
-      template: draft?.template || 'classic',
-      pageSize: draft?.pageSize || 'a4',
-      accentColor: draft?.accentColor || DEFAULT_ACCENT_ID,
+      id: dId,
+      resume: normalizeResume(body?.resume || DEFAULT_RESUME),
+      template: body?.template || 'classic',
+      pageSize: body?.pageSize || 'a4',
+      accentColor: body?.accentColor || DEFAULT_ACCENT_ID,
     };
   }
   const init = initRef.current;
